@@ -72,8 +72,8 @@ export const BizProvider = ({ children }) => {
 
   const login = (username, password) => {
     return new Promise((resolve, reject) => {
-      // Direct simple credentials check
-      if (username === 'user' && password === 'password') {
+      // Check against dynamic credentials from data.auth
+      if (username === data.auth.username && password === data.auth.password) {
         const adminUser = data.users[0]; // Default to first seeded user
         setIsAuthenticated(true);
         setCurrentUser(adminUser);
@@ -86,6 +86,14 @@ export const BizProvider = ({ children }) => {
         reject(new Error('Invalid credentials'));
       }
     });
+  };
+
+  const updateCredentials = (username, password) => {
+    setData(prev => ({
+      ...prev,
+      auth: { username, password }
+    }));
+    addToast('Credentials updated successfully');
   };
 
   const logout = () => {
@@ -110,7 +118,8 @@ export const BizProvider = ({ children }) => {
     isAuthenticated,
     currentUser,
     login,
-    logout
+    logout,
+    updateCredentials
   };
 
   return <BizContext.Provider value={value}>{children}</BizContext.Provider>;

@@ -87,6 +87,10 @@ export const generateSeedData = () => {
         gstin: '27AAAAA0000A1Z5',
         address: '123 Business Hub, Indore, MP'
       }
+    },
+    auth: {
+      username: 'user',
+      password: 'password'
     }
   };
 };

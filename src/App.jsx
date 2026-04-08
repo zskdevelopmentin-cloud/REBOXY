@@ -11,6 +11,7 @@ import Reports from './pages/Reports';
 import Entries from './pages/Entries';
 import Outstanding from './pages/Outstanding';
 import More from './pages/More';
+import SecuritySettings from './pages/SecuritySettings';
 
 import { Search, X, ArrowRight } from 'lucide-react';
 import { formatCurrency } from './utils/formatters';
@@ -69,6 +70,7 @@ const AppContent = () => {
             <Route path="/entries" element={<Entries />} />
             <Route path="/outstanding" element={<Outstanding />} />
             <Route path="/more/*" element={<More />} />
+            <Route path="/more/security" element={<SecuritySettings />} />
           </Routes>
         </div>
       </main>

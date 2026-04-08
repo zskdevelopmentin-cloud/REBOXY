@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useBiz } from '../context/BizContext';
 import { 
   User, Building2, Users, ShieldCheck, 
@@ -8,6 +9,7 @@ import {
 
 const More = () => {
   const { data, updateSettings, deleteUser, logout, currentUser } = useBiz();
+  const navigate = useNavigate();
 
   const menuItems = [
     { 
@@ -33,10 +35,11 @@ const More = () => {
     },
     { 
         id: 'security', 
-        name: 'Data Security', 
-        sub: 'Encryption & Private Lock', 
+        name: 'Security & Login', 
+        sub: 'Change Admin User & Pass', 
         icon: ShieldCheck, 
-        color: 'bg-green-600 shadow-green-600/10' 
+        color: 'bg-green-600 shadow-green-600/10',
+        path: '/more/security'
     },
     { 
         id: 'app', 
@@ -77,7 +80,11 @@ const More = () => {
       {/* Menu List */}
       <div className="px-4 space-y-3">
         {menuItems.map(item => (
-            <button key={item.id} className="w-full flex items-center justify-between p-4 bg-white dark:bg-gray-800 rounded-3xl border border-gray-50 dark:border-gray-700 shadow-sm active:scale-[0.98] transition-all group">
+            <button 
+                key={item.id} 
+                onClick={() => item.path ? navigate(item.path) : null}
+                className="w-full flex items-center justify-between p-4 bg-white dark:bg-gray-800 rounded-3xl border border-gray-50 dark:border-gray-700 shadow-sm active:scale-[0.98] transition-all group"
+            >
                 <div className="flex items-center gap-4">
                     <div className={`p-3 rounded-2xl text-white ${item.color} group-hover:scale-110 transition-transform`}>
                         <item.icon size={22} />
