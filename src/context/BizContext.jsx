@@ -11,6 +11,13 @@ export const BizProvider = ({ children }) => {
 
   const [toasts, setToasts] = useState([]);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    return localStorage.getItem('reboxy_auth') === 'true';
+  });
+  const [currentUser, setCurrentUser] = useState(() => {
+    const user = localStorage.getItem('reboxy_user');
+    return user ? JSON.parse(user) : null;
+  });
 
   useEffect(() => {
     localStorage.setItem(SEED_KEY, JSON.stringify(data));
@@ -63,6 +70,32 @@ export const BizProvider = ({ children }) => {
     addToast('User deleted');
   };
 
+  const login = (email, password) => {
+    return new Promise((resolve, reject) => {
+      // Mock auth logic
+      const user = data.users.find(u => u.email === email);
+      if (user && password === 'admin123') { // Simple mock password
+        setIsAuthenticated(true);
+        setCurrentUser(user);
+        localStorage.setItem('reboxy_auth', 'true');
+        localStorage.setItem('reboxy_user', JSON.stringify(user));
+        addToast(`Welcome back, ${user.name}`);
+        resolve(user);
+      } else {
+        addToast('Invalid credentials', 'error');
+        reject(new Error('Invalid credentials'));
+      }
+    });
+  };
+
+  const logout = () => {
+    setIsAuthenticated(false);
+    setCurrentUser(null);
+    localStorage.removeItem('reboxy_auth');
+    localStorage.removeItem('reboxy_user');
+    addToast('Logged out safely');
+  };
+
   const value = {
     data,
     setData,
@@ -73,7 +106,11 @@ export const BizProvider = ({ children }) => {
     addToast,
     toasts,
     searchOpen,
-    setSearchOpen
+    setSearchOpen,
+    isAuthenticated,
+    currentUser,
+    login,
+    logout
   };
 
   return <BizContext.Provider value={value}>{children}</BizContext.Provider>;

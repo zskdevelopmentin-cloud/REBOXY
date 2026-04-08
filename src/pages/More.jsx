@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 
 const More = () => {
-  const { data, updateSettings, deleteUser } = useBiz();
+  const { data, updateSettings, deleteUser, logout, currentUser } = useBiz();
 
   const menuItems = [
     { 
@@ -67,8 +67,8 @@ const More = () => {
                 <User size={32} />
             </div>
             <div>
-                <p className="text-xl font-black uppercase tracking-tighter">Admin User</p>
-                <p className="text-[10px] font-bold uppercase tracking-widest opacity-70">Super Admin • ID: 1024</p>
+                <p className="text-xl font-black uppercase tracking-tighter">{currentUser?.name || 'Admin User'}</p>
+                <p className="text-[10px] font-bold uppercase tracking-widest opacity-70">{currentUser?.role || 'Super Admin'} • ID: 1024</p>
                 <span className="inline-block mt-2 text-[8px] font-black uppercase tracking-widest bg-white/20 px-2 py-0.5 rounded-full">Pro Enterprise Plan</span>
             </div>
         </div>
@@ -126,7 +126,10 @@ const More = () => {
       </div>
 
       <div className="px-6 pb-12">
-        <button className="w-full flex items-center justify-center gap-3 p-5 text-red-500 bg-red-50 dark:bg-red-900/10 rounded-[2rem] font-black uppercase tracking-widest text-sm active:scale-95 transition-all">
+        <button 
+            onClick={logout}
+            className="w-full flex items-center justify-center gap-3 p-5 text-red-500 bg-red-50 dark:bg-red-900/10 rounded-[2rem] font-black uppercase tracking-widest text-sm active:scale-95 transition-all"
+        >
             <LogOut size={20} /> Logout Account
         </button>
         <p className="text-center text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-6">Version 2.4.0 (Build 512)</p>

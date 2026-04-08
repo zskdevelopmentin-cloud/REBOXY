@@ -4,7 +4,7 @@ import { RefreshCw, Search, ChevronDown, Bell } from 'lucide-react';
 import { getRelativeTime } from '../../utils/formatters';
 
 const Header = () => {
-  const { data, syncData, addToast } = useBiz();
+  const { data, syncData, addToast, setSearchOpen, currentUser } = useBiz();
   const [isSyncing, setIsSyncing] = useState(false);
 
   const handleSync = async () => {
@@ -48,7 +48,7 @@ const Header = () => {
           <Search size={20} />
         </button>
         <div className="w-9 h-9 rounded-2xl bg-accent text-white flex items-center justify-center font-black text-xs ring-4 ring-accent/10 shadow-lg shadow-accent/20 cursor-pointer">
-          AD
+          {currentUser ? currentUser.name.split(' ').map(n => n[0]).join('').toUpperCase() : 'AD'}
         </div>
       </div>
     </header>
