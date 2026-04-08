@@ -4,7 +4,7 @@ import { ShieldCheck, Mail, Lock, Fingerprint, Eye, EyeOff } from 'lucide-react'
 
 const Login = () => {
     const { login } = useBiz();
-    const [email, setEmail] = useState('');
+    const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
@@ -13,7 +13,7 @@ const Login = () => {
         e.preventDefault();
         setIsLoading(true);
         try {
-            await login(email, password);
+            await login(username, password);
         } catch (err) {
             // Error is handled by context toast
         } finally {
@@ -48,22 +48,22 @@ const Login = () => {
 
                     <form onSubmit={handleSubmit} className="space-y-5">
                         <div className="space-y-1.5">
-                            <label className="text-[10px] font-black text-blue-100/50 uppercase tracking-widest ml-1">Email Address</label>
+                            <label className="text-[10px] font-black text-blue-100/50 uppercase tracking-widest ml-1">Username</label>
                             <div className="relative group">
                                 <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-white/40 group-focus-within:text-white transition-colors" size={18} />
                                 <input 
-                                    type="email" 
+                                    type="text" 
                                     required
-                                    value={email}
-                                    onChange={e => setEmail(e.target.value)}
-                                    placeholder="admin@reboxy.com" 
+                                    value={username}
+                                    onChange={e => setUsername(e.target.value)}
+                                    placeholder="Enter 'user'" 
                                     className="w-full pl-12 pr-4 py-4 bg-white/5 border border-white/10 rounded-2xl text-white placeholder-white/20 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:bg-white/10 transition-all"
                                 />
                             </div>
                         </div>
 
                         <div className="space-y-1.5">
-                            <label className="text-[10px] font-black text-blue-100/50 uppercase tracking-widest ml-1">Secure Password</label>
+                            <label className="text-[10px] font-black text-blue-100/50 uppercase tracking-widest ml-1">Password</label>
                             <div className="relative group">
                                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-white/40 group-focus-within:text-white transition-colors" size={18} />
                                 <input 
@@ -71,7 +71,7 @@ const Login = () => {
                                     required
                                     value={password}
                                     onChange={e => setPassword(e.target.value)}
-                                    placeholder="••••••••" 
+                                    placeholder="Enter 'password'" 
                                     className="w-full pl-12 pr-12 py-4 bg-white/5 border border-white/10 rounded-2xl text-white placeholder-white/20 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:bg-white/10 transition-all"
                                 />
                                 <button 

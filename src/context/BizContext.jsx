@@ -70,19 +70,19 @@ export const BizProvider = ({ children }) => {
     addToast('User deleted');
   };
 
-  const login = (email, password) => {
+  const login = (username, password) => {
     return new Promise((resolve, reject) => {
-      // Mock auth logic
-      const user = data.users.find(u => u.email === email);
-      if (user && password === 'admin123') { // Simple mock password
+      // Direct simple credentials check
+      if (username === 'user' && password === 'password') {
+        const adminUser = data.users[0]; // Default to first seeded user
         setIsAuthenticated(true);
-        setCurrentUser(user);
+        setCurrentUser(adminUser);
         localStorage.setItem('reboxy_auth', 'true');
-        localStorage.setItem('reboxy_user', JSON.stringify(user));
-        addToast(`Welcome back, ${user.name}`);
-        resolve(user);
+        localStorage.setItem('reboxy_user', JSON.stringify(adminUser));
+        addToast(`Welcome back, ${adminUser.name}`);
+        resolve(adminUser);
       } else {
-        addToast('Invalid credentials', 'error');
+        addToast('Invalid user or password', 'error');
         reject(new Error('Invalid credentials'));
       }
     });
