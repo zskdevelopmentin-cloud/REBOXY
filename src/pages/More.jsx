@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 
 const More = () => {
-  const { data, updateSettings, deleteUser, logout, currentUser } = useBiz();
+  const { data, updateSettings, deleteUser, logout, currentUser, migrateToCloud } = useBiz();
   const navigate = useNavigate();
 
   const menuItems = [
@@ -132,7 +132,13 @@ const More = () => {
         </div>
       </div>
 
-      <div className="px-6 pb-12">
+      <div className="px-6 pb-4">
+        <button 
+            onClick={migrateToCloud}
+            className="w-full flex items-center justify-center gap-3 p-5 text-indigo-500 bg-indigo-50 dark:bg-indigo-900/10 rounded-[2rem] font-black uppercase tracking-widest text-sm active:scale-95 transition-all mb-4 border border-indigo-100 dark:border-indigo-800"
+        >
+            <Globe size={20} /> Sync to Cloud DB
+        </button>
         <button 
             onClick={logout}
             className="w-full flex items-center justify-center gap-3 p-5 text-red-500 bg-red-50 dark:bg-red-900/10 rounded-[2rem] font-black uppercase tracking-widest text-sm active:scale-95 transition-all"

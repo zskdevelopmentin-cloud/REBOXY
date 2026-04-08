@@ -17,8 +17,16 @@ import { Search, X, ArrowRight } from 'lucide-react';
 import { formatCurrency } from './utils/formatters';
 
 const AppContent = () => {
-  const { toasts, data, searchOpen, setSearchOpen, isAuthenticated } = useBiz();
+  const { toasts, data, searchOpen, setSearchOpen, isAuthenticated, isLoading } = useBiz();
   const [searchQuery, setSearchQuery] = useState('');
+
+  if (isLoading) {
+    return (
+      <div className="mobile-container flex items-center justify-center bg-background dark:bg-gray-950">
+        <div className="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
+      </div>
+    );
+  }
 
   const searchResults = useMemo(() => {
     if (!searchQuery) return [];
