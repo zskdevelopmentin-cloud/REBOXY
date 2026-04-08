@@ -19,22 +19,6 @@ const AppContent = () => {
   const { toasts, data, searchOpen, setSearchOpen, isAuthenticated } = useBiz();
   const [searchQuery, setSearchQuery] = useState('');
 
-  if (!isAuthenticated) {
-    return (
-      <>
-        <Login />
-        {/* Toast System accessible on login page */}
-        <div className="fixed top-8 left-1/2 -translate-x-1/2 flex flex-col gap-2 z-[200] pointer-events-none">
-          {toasts.map(toast => (
-            <div key={toast.id} className="bg-white/95 dark:bg-black/90 text-black dark:text-white px-6 py-3 rounded-[2rem] shadow-2xl flex items-center gap-3 text-xs font-black uppercase tracking-widest animate-in slide-in-from-top-10 duration-300 backdrop-blur-lg pointer-events-auto border border-gray-100 dark:border-white/10">
-              <div className={`w-2 h-2 rounded-full ${toast.type === 'success' ? 'bg-green-500' : 'bg-red-500'}`} />
-              {toast.message}
-            </div>
-          ))}
-        </div>
-      </>
-    );
-  }
   const searchResults = useMemo(() => {
     if (!searchQuery) return [];
     const q = searchQuery.toLowerCase();
@@ -56,6 +40,23 @@ const AppContent = () => {
 
     return results.slice(0, 10);
   }, [searchQuery, data]);
+
+  if (!isAuthenticated) {
+    return (
+      <>
+        <Login />
+        {/* Toast System accessible on login page */}
+        <div className="fixed top-8 left-1/2 -translate-x-1/2 flex flex-col gap-2 z-[200] pointer-events-none">
+          {toasts.map(toast => (
+            <div key={toast.id} className="bg-white/95 dark:bg-black/90 text-black dark:text-white px-6 py-3 rounded-[2rem] shadow-2xl flex items-center gap-3 text-xs font-black uppercase tracking-widest animate-in slide-in-from-top-10 duration-300 backdrop-blur-lg pointer-events-auto border border-gray-100 dark:border-white/10">
+              <div className={`w-2 h-2 rounded-full ${toast.type === 'success' ? 'bg-green-500' : 'bg-red-500'}`} />
+              {toast.message}
+            </div>
+          ))}
+        </div>
+      </>
+    );
+  }
   
   return (
     <div className="mobile-container bg-background dark:bg-gray-950 shadow-2xl transition-all duration-500 overflow-hidden font-inter">
