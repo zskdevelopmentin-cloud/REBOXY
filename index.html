@@ -1,0 +1,875 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Biz Analyst Clone - REBOXY TRADERS</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#1a56db',
+                        accent: '#16bdca',
+                        success: '#31c48d',
+                        warning: '#ff5a1f',
+                        background: '#f9fafb',
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .mobile-container { max-width: 420px; margin: 0 auto; height: 100vh; display: flex; flex-direction: column; position: relative; }
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #e5e7eb; border-radius: 10px; }
+    </style>
+    <!-- Scripts -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="bg-gray-100 dark:bg-gray-950 transition-colors duration-200">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useMemo, useRef } = React;
+
+        // --- MOCK DATA ENGINE ---
+        const SEED_KEY = 'reboxy_biz_analyst_data';
+        
+        const generateData = () => {
+            const companies = [
+                { id: 'c1', name: 'REBOXY TRADERS', lastSync: new Date().toISOString() },
+                { id: 'c2', name: 'Krishna Enterprises', lastSync: new Date().toISOString() },
+                { id: 'c3', name: 'Om Distributors', lastSync: new Date().toISOString() }
+            ];
+
+            const customers = Array.from({ length: 50 }, (_, i) => ({
+                id: `cus_${i}`,
+                name: `Customer ${i + 1} Pvt Ltd`,
+                type: 'Customer',
+                balance: Math.floor(Math.random() * 495000) + 5000,
+                email: `contact${i}@example.com`,
+                phone: `9${Math.floor(Math.random()*900000000 + 100000000)}`,
+                city: ['Mumbai', 'Delhi', 'Bangalore', 'Pune', 'Surat'][Math.floor(Math.random()*5)]
+            }));
+
+            const suppliers = Array.from({ length: 30 }, (_, i) => ({
+                id: `sup_${i}`,
+                name: `Supplier ${String.fromCharCode(65 + i)} Wholesale`,
+                type: 'Supplier',
+                balance: Math.floor(Math.random() * 300000) + 10000,
+                phone: `8${Math.floor(Math.random()*900000000 + 100000000)}`
+            }));
+
+            const stockItems = Array.from({ length: 100 }, (_, i) => ({
+                id: `item_${i}`,
+                name: `Item ${i + 1} - Product SKU`,
+                rate: Math.floor(Math.random() * 1000) + 50,
+                qty: Math.floor(Math.random() * 200),
+                category: ['FMCG', 'Electronics', 'Grocery', 'Hardware'][Math.floor(Math.random()*4)],
+                value: 0 // Will be calculated
+            })).map(item => ({ ...item, value: item.rate * item.qty }));
+
+            const voucherTypes = ['Sales', 'Purchase', 'Receipt', 'Payment', 'Sales Order', 'Purchase Order', 'Credit Note', 'Debit Note'];
+            const vouchers = Array.from({ length: 500 }, (_, i) => {
+                const type = voucherTypes[Math.floor(Math.random() * voucherTypes.length)];
+                const party = (type === 'Sales' || type === 'Receipt' || type === 'Sales Order' || type === 'Credit Note') 
+                    ? customers[Math.floor(Math.random() * customers.length)]
+                    : suppliers[Math.floor(Math.random() * suppliers.length)];
+                
+                const date = new Date();
+                date.setDate(date.getDate() - Math.floor(Math.random() * 365));
+                
+                return {
+                    id: `vch_${i}`,
+                    vNo: `VCH-${1000 + i}`,
+                    type,
+                    date: date.toISOString(),
+                    partyId: party.id,
+                    partyName: party.name,
+                    amount: Math.floor(Math.random() * 50000) + 500,
+                    status: Math.random() > 0.3 ? 'Fulfilled' : 'Pending',
+                    items: [
+                        { itemId: 'item_1', qty: 2, rate: 500, total: 1000 }
+                    ]
+                };
+            }).sort((a, b) => new Date(b.date) - new Date(a.date));
+
+            return { companies, ledgers: [...customers, ...suppliers], stockItems, vouchers, settings: { darkMode: false, syncTime: new Date().toISOString() } };
+        };
+
+        const useBizData = () => {
+            const [data, setData] = useState(() => {
+                const saved = localStorage.getItem(SEED_KEY);
+                return saved ? JSON.parse(saved) : generateData();
+            });
+
+            useEffect(() => {
+                localStorage.setItem(SEED_KEY, JSON.stringify(data));
+            }, [data]);
+
+            const sync = () => {
+                // Simulation
+                return new Promise(resolve => {
+                    setTimeout(() => {
+                        setData(prev => ({
+                            ...prev,
+                            settings: { ...prev.settings, syncTime: new Date().toISOString() },
+                            vouchers: prev.vouchers.map(v => Math.random() > 0.9 ? { ...v, amount: v.amount + (Math.random() > 0.5 ? 100 : -100) } : v)
+                        }));
+                        resolve();
+                    }, 1500);
+                });
+            };
+
+            return { data, setData, sync };
+        };
+
+        // --- COMPONENT: UI PRIMITIVES ---
+        const Card = ({ children, className = "" }) => (
+            <div className={`bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 ${className}`}>
+                {children}
+            </div>
+        );
+
+        const Icon = ({ name, size = 20, className = "" }) => {
+            useEffect(() => {
+                if (window.lucide) window.lucide.createIcons();
+            }, [name]);
+
+            const lucideName = name.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase();
+            return <i data-lucide={lucideName} className={className} style={{ width: size, height: size, display: 'inline-block' }}></i>;
+        };
+
+        const Badge = ({ children, type = "default" }) => {
+            const colors = {
+                default: "bg-gray-100 text-gray-800",
+                success: "bg-green-100 text-green-800",
+                warning: "bg-orange-100 text-orange-800",
+                danger: "bg-red-100 text-red-800",
+                info: "bg-blue-100 text-blue-800"
+            };
+            return <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${colors[type]}`}>{children}</span>;
+        };
+
+        const Modal = ({ isOpen, onClose, title, children }) => {
+            if (!isOpen) return null;
+            return (
+                <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm p-0 sm:p-4">
+                    <div className="bg-white dark:bg-gray-900 w-full max-w-lg rounded-t-3xl sm:rounded-3xl overflow-hidden flex flex-col max-h-[90vh] animate-in slide-in-from-bottom duration-300">
+                        <div className="p-4 border-b dark:border-gray-800 flex justify-between items-center">
+                            <h3 className="font-bold text-lg dark:text-white">{title}</h3>
+                            <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full dark:text-gray-400">
+                                <Icon name="X" size={20} />
+                            </button>
+                        </div>
+                        <div className="p-4 overflow-y-auto">{children}</div>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- VIEW: DASHBOARD ---
+        const Dashboard = ({ data }) => {
+            const today = new Date().toISOString().split('T')[0];
+            const stats = useMemo(() => {
+                const sales = data.vouchers.filter(v => v.type === 'Sales' && v.date.startsWith(today)).reduce((sum, v) => sum + v.amount, 0);
+                const purchases = data.vouchers.filter(v => v.type === 'Purchase' && v.date.startsWith(today)).reduce((sum, v) => sum + v.amount, 0);
+                const receivable = data.ledgers.filter(l => l.type === 'Customer').reduce((sum, l) => sum + l.balance, 0);
+                const payable = data.ledgers.filter(l => l.type === 'Supplier').reduce((sum, l) => sum + l.balance, 0);
+                return { sales, purchases, receivable, payable, bank: 1250000, cash: 45000 };
+            }, [data, today]);
+
+            // Chart logic
+            const chartRef = useRef(null);
+            useEffect(() => {
+                const ctx = document.getElementById('salesTrendChart')?.getContext('2d');
+                if (!ctx) return;
+                
+                if (chartRef.current) chartRef.current.destroy();
+                
+                const last7Days = Array.from({length: 7}, (_, i) => {
+                    const d = new Date(); d.setDate(d.getDate() - (6-i));
+                    return d.toISOString().split('T')[0];
+                });
+
+                chartRef.current = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: last7Days.map(d => d.split('-')[2]),
+                        datasets: [{
+                            label: 'Daily Sales',
+                            data: last7Days.map(d => data.vouchers.filter(v => v.type === 'Sales' && v.date.startsWith(d)).reduce((s, v) => s + v.amount, 0)),
+                            backgroundColor: '#1a56db',
+                            borderRadius: 6
+                        }]
+                    },
+                    options: { 
+                        responsive: true, maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: { y: { display: false }, x: { grid: { display: false } } }
+                    }
+                });
+            }, [data]);
+
+            return (
+                <div className="p-4 space-y-4 pb-24 overflow-y-auto">
+                    <div className="grid grid-cols-2 gap-3">
+                        <Card className="bg-blue-50 dark:bg-blue-900/20 border-blue-100">
+                            <p className="text-xs text-blue-600 dark:text-blue-400 font-medium">Today's Sales</p>
+                            <p className="text-xl font-bold text-blue-900 dark:text-white">₹{stats.sales.toLocaleString()}</p>
+                        </Card>
+                        <Card className="bg-orange-50 dark:bg-orange-900/20 border-orange-100">
+                            <p className="text-xs text-orange-600 dark:text-orange-400 font-medium">Today's Purchase</p>
+                            <p className="text-xl font-bold text-orange-900 dark:text-white">₹{stats.purchases.toLocaleString()}</p>
+                        </Card>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                        <Card>
+                            <p className="text-[10px] uppercase tracking-wider text-gray-500 font-bold mb-1">Receivables</p>
+                            <p className="text-lg font-bold text-gray-900 dark:text-white">₹{(stats.receivable/100000).toFixed(2)}L</p>
+                            <p className="text-[10px] text-green-600 mt-1">↑ 12% vs LW</p>
+                        </Card>
+                        <Card>
+                            <p className="text-[10px] uppercase tracking-wider text-gray-500 font-bold mb-1">Payables</p>
+                            <p className="text-lg font-bold text-gray-900 dark:text-white">₹{(stats.payable/100000).toFixed(2)}L</p>
+                            <p className="text-[10px] text-red-600 mt-1">↓ 5% vs LW</p>
+                        </Card>
+                    </div>
+
+                    <Card>
+                        <h4 className="text-sm font-bold mb-4 dark:text-white">7-Day Sales Trend</h4>
+                        <div className="h-32">
+                            <canvas id="salesTrendChart"></canvas>
+                        </div>
+                    </Card>
+
+                    <div className="space-y-3">
+                        <div className="flex justify-between items-center">
+                            <h4 className="text-sm font-bold dark:text-white">Recent Transactions</h4>
+                            <button className="text-xs text-primary font-bold">View All</button>
+                        </div>
+                        {data.vouchers.slice(0, 5).map(v => (
+                            <div key={v.id} className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-xl border border-gray-50 dark:border-gray-700">
+                                <div className="flex items-center gap-3">
+                                    <div className={`p-2 rounded-lg ${v.type === 'Sales' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                        <Icon name={v.type === 'Sales' ? 'ArrowUpRight' : 'ArrowDownLeft'} size={18} />
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-bold dark:text-white">{v.partyName}</p>
+                                        <p className="text-[10px] text-gray-500">{new Date(v.date).toLocaleDateString()} • {v.vNo}</p>
+                                    </div>
+                                </div>
+                                <p className={`text-sm font-bold ${v.type === 'Sales' ? 'text-green-600' : 'text-red-600'}`}>₹{v.amount.toLocaleString()}</p>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            );
+        };
+
+        // --- VIEW: REPORTS ---
+        const ReportsView = ({ data }) => {
+            const [selectedReport, setSelectedReport] = useState(null);
+
+            const reports = [
+                { id: 'sales', name: 'Sales Analysis', icon: 'BarChart3', color: 'bg-blue-500' },
+                { id: 'purchase', name: 'Purchase Analysis', icon: 'ShoppingCart', color: 'bg-orange-500' },
+                { id: 'pl', name: 'Profit & Loss', icon: 'PieChart', color: 'bg-green-500' },
+                { id: 'cash', name: 'Cash & Bank', icon: 'Banknote', color: 'bg-teal-500' },
+                { id: 'stock', name: 'Stock / Inventory', icon: 'Package', color: 'bg-indigo-500' },
+                { id: 'ledger', name: 'Ledger Report', icon: 'BookOpen', color: 'bg-purple-500' },
+                { id: 'daybook', name: 'Daybook', icon: 'CalendarDays', color: 'bg-pink-500' },
+                { id: 'top', name: 'Top Reports', icon: 'TrendingUp', color: 'bg-red-500' },
+                { id: 'expense', name: 'Expense Analysis', icon: 'Wallet', color: 'bg-yellow-600' },
+                { id: 'order', name: 'Order Analysis', icon: 'FileText', color: 'bg-cyan-600' }
+            ];
+
+            if (selectedReport) {
+                return <ReportDetail report={reports.find(r => r.id === selectedReport)} data={data} onBack={() => setSelectedReport(null)} />;
+            }
+
+            return (
+                <div className="p-4 grid grid-cols-2 gap-4 pb-24 overflow-y-auto">
+                    {reports.map(r => (
+                        <Card key={r.id} className="flex flex-col items-center justify-center p-6 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer group active:scale-95 transition-all" 
+                              onClick={() => setSelectedReport(r.id)}>
+                            <div className={`p-4 rounded-2xl text-white mb-3 shadow-lg shadow-${r.id}-500/20 ${r.color}`}>
+                                <Icon name={r.icon} size={28} />
+                            </div>
+                            <p className="text-xs font-black text-center dark:text-white uppercase tracking-tight">{r.name}</p>
+                        </Card>
+                    ))}
+                </div>
+            );
+        };
+
+        const ReportDetail = ({ report, data, onBack }) => {
+            const [filter, setFilter] = useState('');
+            const [dateRange, setDateRange] = useState('This Month');
+
+            const filteredData = useMemo(() => {
+                if (report.id === 'sales') return data.vouchers.filter(v => v.type === 'Sales');
+                if (report.id === 'purchase') return data.vouchers.filter(v => v.type === 'Purchase');
+                if (report.id === 'stock') return data.stockItems;
+                if (report.id === 'daybook') return data.vouchers;
+                return [];
+            }, [report.id, data]);
+
+            return (
+                <div className="flex flex-col h-full bg-white dark:bg-gray-950 z-50">
+                    <div className="p-4 border-b dark:border-gray-800 flex items-center gap-4">
+                        <button onClick={onBack} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full dark:text-white">
+                            <Icon name="ArrowLeft" size={20} />
+                        </button>
+                        <h2 className="font-black text-lg dark:text-white uppercase tracking-tight">{report.name}</h2>
+                    </div>
+
+                    <div className="p-4 flex gap-2 overflow-x-auto no-scrollbar">
+                        {['Today', 'This Week', 'This Month', 'This Quarter', 'Custom'].map(r => (
+                            <button key={r} onClick={() => setDateRange(r)} className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap ${dateRange === r ? 'bg-primary text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-500'}`}>
+                                {r}
+                            </button>
+                        ))}
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-24">
+                        {/* Summary Cards */}
+                        <div className="grid grid-cols-2 gap-3">
+                            <Card className="bg-primary/5 border-primary/10">
+                                <p className="text-[10px] font-bold text-primary uppercase">Total Count</p>
+                                <p className="text-xl font-black dark:text-white">{filteredData.length}</p>
+                            </Card>
+                            <Card className="bg-success/5 border-success/10">
+                                <p className="text-[10px] font-bold text-success uppercase">Total Value</p>
+                                <p className="text-xl font-black dark:text-white">₹{(filteredData.reduce((s, v) => s + (v.amount || v.value || 0), 0) / 100000).toFixed(2)}L</p>
+                            </Card>
+                        </div>
+
+                        {/* Search Bar */}
+                        <div className="relative">
+                            <Icon name="Search" className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                            <input 
+                                placeholder="Search results..."
+                                className="w-full pl-10 pr-4 py-2 bg-gray-50 dark:bg-gray-800 rounded-xl text-sm border-none focus:ring-1 ring-primary dark:text-white"
+                                onChange={e => setFilter(e.target.value)}
+                            />
+                        </div>
+
+                        {/* Table / List */}
+                        <div className="space-y-2">
+                             {filteredData.slice(0, 20).map((item, i) => (
+                                 <div key={i} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900 rounded-xl border border-transparent hover:border-primary/20 transition-all">
+                                     <div>
+                                         <p className="text-sm font-bold dark:text-white">{item.partyName || item.name}</p>
+                                         <p className="text-[10px] text-gray-500">{item.date ? new Date(item.date).toLocaleDateString() : `Qty: ${item.qty} | Cat: ${item.category}`} • {item.vNo || item.id}</p>
+                                     </div>
+                                     <div className="text-right">
+                                         <p className="text-sm font-black dark:text-white">₹{(item.amount || item.value).toLocaleString()}</p>
+                                         {item.status && <Badge type={item.status === 'Fulfilled' ? 'success' : 'warning'}>{item.status}</Badge>}
+                                     </div>
+                                 </div>
+                             ))}
+                        </div>
+                        
+                        <button className="w-full py-3 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded-xl font-bold flex items-center justify-center gap-2">
+                            <Icon name="Download" size={18} /> Export to CSV
+                        </button>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- VIEW: ENTRIES ---
+        const EntryForm = ({ type, data, onSave, onCancel }) => {
+            const [partyId, setPartyId] = useState('');
+            const [amount, setAmount] = useState('');
+            const [items, setItems] = useState([{ itemId: '', qty: 1, rate: 0, total: 0 }]);
+            const [errors, setErrors] = useState({});
+
+            const subtotal = useMemo(() => items.reduce((acc, curr) => acc + (curr.qty * curr.rate), 0), [items]);
+            const gst = subtotal * 0.18;
+            const grandTotal = subtotal + gst;
+
+            const handleAddItem = () => setItems([...items, { itemId: '', qty: 1, rate: 0, total: 0 }]);
+            const handleItemChange = (i, field, value) => {
+                const newItems = [...items];
+                newItems[i][field] = value;
+                setItems(newItems);
+            };
+
+            const validate = () => {
+                const newErrors = {};
+                if (!partyId) newErrors.party = 'Please select a party';
+                if (!amount && (type === 'Receipt' || type === 'Payment')) newErrors.amount = 'Amount is required';
+                setErrors(newErrors);
+                return Object.keys(newErrors).length === 0;
+            };
+
+            const isInvoice = ['Sales', 'Purchase', 'Sales Order', 'Purchase Order'].includes(type);
+
+            return (
+                <div className="space-y-6 pb-6 animate-in slide-in-from-right duration-300">
+                    <div className="space-y-4">
+                        <section>
+                            <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Party Name</label>
+                            <select 
+                                value={partyId}
+                                onChange={e => setPartyId(e.target.value)}
+                                className={`w-full p-4 bg-gray-50 dark:bg-gray-800 rounded-2xl border-none ring-1 ${errors.party ? 'ring-red-500' : 'ring-gray-200 dark:ring-gray-700'} focus:ring-2 focus:ring-primary dark:text-white transition-all`}
+                            >
+                                <option value="">Select Ledger</option>
+                                {data.ledgers.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+                            </select>
+                            {errors.party && <p className="text-[10px] text-red-500 mt-1 font-bold">{errors.party}</p>}
+                        </section>
+
+                        {!isInvoice ? (
+                            <section>
+                                <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Total Amount</label>
+                                <div className="relative">
+                                    <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-gray-400">₹</span>
+                                    <input 
+                                        type="number" value={amount} onChange={e => setAmount(e.target.value)}
+                                        className="w-full p-4 pl-8 bg-gray-100 dark:bg-gray-800 rounded-2xl border-none focus:ring-2 ring-primary dark:text-white font-bold"
+                                        placeholder="0.00"
+                                    />
+                                </div>
+                            </section>
+                        ) : (
+                            <section className="space-y-4">
+                                <div className="flex justify-between items-center">
+                                    <label className="text-[10px] font-bold text-gray-400 uppercase">Line Items</label>
+                                    <button onClick={handleAddItem} className="text-xs font-bold text-primary flex items-center gap-1"><Icon name="Plus" size={14} /> Add Item</button>
+                                </div>
+                                {items.map((item, i) => (
+                                    <div key={i} className="p-4 bg-gray-50 dark:bg-gray-800 rounded-2xl space-y-3 relative">
+                                        <select 
+                                            value={item.itemId} onChange={e => handleItemChange(i, 'itemId', e.target.value)}
+                                            className="w-full bg-transparent border-none text-sm font-bold dark:text-white p-0 focus:ring-0"
+                                        >
+                                            <option value="">Select Item</option>
+                                            {data.stockItems.map(si => <option key={si.id} value={si.id}>{si.name}</option>)}
+                                        </select>
+                                        <div className="flex gap-4">
+                                            <div className="flex-1">
+                                                <input type="number" placeholder="Qty" value={item.qty} onChange={e => handleItemChange(i, 'qty', e.target.value)} className="w-full bg-transparent border-b border-gray-200 dark:border-gray-700 p-1 text-sm dark:text-white" />
+                                            </div>
+                                            <div className="flex-1">
+                                                <input type="number" placeholder="Rate" value={item.rate} onChange={e => handleItemChange(i, 'rate', e.target.value)} className="w-full bg-transparent border-b border-gray-200 dark:border-gray-700 p-1 text-sm dark:text-white" />
+                                            </div>
+                                            <div className="text-right flex-1">
+                                                <p className="text-xs text-gray-400">Total</p>
+                                                <p className="font-bold dark:text-white">₹{(item.qty * item.rate).toLocaleString()}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                                <div className="p-4 bg-primary/5 rounded-2xl space-y-2">
+                                     <div className="flex justify-between text-xs font-bold text-gray-500"><span>Subtotal</span><span>₹{subtotal.toLocaleString()}</span></div>
+                                     <div className="flex justify-between text-xs font-bold text-gray-500"><span>GST (18%)</span><span>₹{gst.toLocaleString()}</span></div>
+                                     <div className="flex justify-between text-lg font-black dark:text-white border-t border-gray-200 dark:border-gray-700 pt-2"><span>Grand Total</span><span>₹{grandTotal.toLocaleString()}</span></div>
+                                </div>
+                            </section>
+                        )}
+                    </div>
+
+                    <div className="flex gap-3">
+                        <button onClick={onCancel} className="flex-1 p-4 rounded-2xl font-bold bg-gray-100 dark:bg-gray-800 text-gray-500 hover:bg-gray-200 transition-all">Discard</button>
+                        <button onClick={() => validate() && onSave()} className="flex-1 p-4 rounded-2xl font-bold bg-primary text-white shadow-lg shadow-primary/30 hover:bg-primary/90 transition-all">Save {type}</button>
+                    </div>
+                </div>
+            );
+        };
+
+        const EntriesView = ({ data, setData }) => {
+            const [selectedType, setSelectedType] = useState(null);
+            
+            const types = [
+                { id: 'Sales', icon: 'Receipt', color: 'bg-green-500', desc: 'Create Sale Invoice' },
+                { id: 'Purchase', icon: 'ShoppingCart', color: 'bg-orange-500', desc: 'Book Purchase Bill' },
+                { id: 'Receipt', icon: 'ArrowDownLeft', color: 'bg-blue-500', desc: 'Money Received' },
+                { id: 'Payment', icon: 'ArrowUpRight', color: 'bg-red-500', desc: 'Money Paid Out' },
+                { id: 'Sales Order', icon: 'FileText', color: 'bg-teal-500', desc: 'Customer Order' },
+                { id: 'Purchase Order', icon: 'FileCheck', color: 'bg-indigo-500', desc: 'Supplier Order' },
+                { id: 'Credit Note', icon: 'MinusSquare', color: 'bg-pink-500', desc: 'Sales Return' },
+                { id: 'Debit Note', icon: 'PlusSquare', color: 'bg-purple-500', desc: 'Purchase Return' }
+            ];
+
+            return (
+                <div className="p-4 space-y-6 pb-24 overflow-y-auto h-full bg-gray-50 dark:bg-gray-950">
+                    <header>
+                        <h3 className="text-xl font-black dark:text-white uppercase tracking-tighter">New Entry</h3>
+                        <p className="text-xs text-gray-500">Select a voucher type to continue</p>
+                    </header>
+
+                    <div className="grid grid-cols-1 gap-3">
+                        {types.map(t => (
+                            <button key={t.id} onClick={() => setSelectedType(t.id)} className="flex items-center gap-4 p-4 bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 text-left hover:border-primary/50 transition-all shadow-sm group">
+                                <div className={`p-3 rounded-2xl text-white ${t.color} group-hover:scale-110 transition-transform`}>
+                                    <Icon name={t.icon} size={24} />
+                                </div>
+                                <div className="flex-1">
+                                    <span className="block text-sm font-black dark:text-white uppercase tracking-tight">{t.id}</span>
+                                    <span className="block text-[10px] text-gray-500 font-medium">{t.desc}</span>
+                                </div>
+                                <Icon name="ChevronRight" size={18} className="text-gray-300" />
+                            </button>
+                        ))}
+                    </div>
+
+                    <Modal isOpen={!!selectedType} onClose={() => setSelectedType(null)} title={`Record ${selectedType}`}>
+                        <EntryForm type={selectedType} data={data} onSave={() => { setSelectedType(null); alert('Entry Saved to Daybook!'); }} onCancel={() => setSelectedType(null)} />
+                    </Modal>
+                </div>
+            );
+        };
+
+        const OutstandingView = ({ data }) => {
+            const [tab, setTab] = useState('Receivables');
+            const [selectedLedger, setSelectedLedger] = useState(null);
+            
+            const items = data.ledgers
+                .filter(l => tab === 'Receivables' ? l.type === 'Customer' : l.type === 'Supplier')
+                .sort((a,b) => b.balance - a.balance);
+
+            const sendReminder = (item, channel) => {
+                const msg = `Dear ${item.name}, your payment of ₹${item.balance.toLocaleString()} is outstanding with REBOXY TRADERS. Please clear it at your earliest.`;
+                if (channel === 'wa') window.open(`https://wa.me/91${item.phone}?text=${encodeURIComponent(msg)}`);
+                if (channel === 'mail') window.location.href = `mailto:${item.email}?subject=Payment Reminder&body=${encodeURIComponent(msg)}`;
+            };
+
+            return (
+                <div className="flex flex-col h-full overflow-hidden bg-gray-50 dark:bg-gray-950">
+                    <div className="p-4 bg-white dark:bg-gray-900 border-b dark:border-gray-800">
+                        <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-2xl">
+                            {['Receivables', 'Payables'].map(t => (
+                                <button 
+                                    key={t} 
+                                    onClick={() => setTab(t)}
+                                    className={`flex-1 py-3 rounded-xl font-black text-xs uppercase tracking-tighter transition-all ${tab === t ? 'bg-white dark:bg-gray-700 text-primary shadow-sm' : 'text-gray-400'}`}
+                                >
+                                    {t}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto p-4 space-y-3 pb-24">
+                        {items.map(item => (
+                            <Card key={item.id} className="group hover:border-primary/30 transition-all cursor-pointer" onClick={() => setSelectedLedger(item)}>
+                                <div className="flex justify-between items-start">
+                                    <div className="flex-1">
+                                        <p className="text-sm font-black dark:text-white uppercase tracking-tight">{item.name}</p>
+                                        <div className="flex gap-2 mt-1">
+                                            <Badge type={item.balance > 100000 ? 'danger' : 'warning'}>Overdue {Math.floor(Math.random()*60) + 1}d</Badge>
+                                            <span className="text-[10px] text-gray-400 font-bold uppercase">{item.city || 'Indore'}</span>
+                                        </div>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="text-lg font-black dark:text-white">₹{item.balance.toLocaleString()}</p>
+                                        <div className="flex items-center gap-1 justify-end mt-2">
+                                            <button 
+                                                onClick={(e) => { e.stopPropagation(); sendReminder(item, 'wa'); }}
+                                                className="p-2 bg-green-500 text-white rounded-xl shadow-lg shadow-green-500/20 active:scale-90 transition-transform"
+                                            >
+                                                <Icon name="MessageCircle" size={14} />
+                                            </button>
+                                            <button 
+                                                onClick={(e) => { e.stopPropagation(); sendReminder(item, 'mail'); }}
+                                                className="p-2 bg-primary text-white rounded-xl shadow-lg shadow-primary/20 active:scale-90 transition-transform"
+                                            >
+                                                <Icon name="Mail" size={14} />
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </Card>
+                        ))}
+                    </div>
+
+                    <Modal isOpen={!!selectedLedger} onClose={() => setSelectedLedger(null)} title="Ledger Details">
+                        {selectedLedger && (
+                            <div className="space-y-6">
+                                <div className="text-center">
+                                    <div className="w-20 h-20 bg-primary/10 rounded-3xl mx-auto flex items-center justify-center text-primary mb-3">
+                                        <Icon name="User" size={40} />
+                                    </div>
+                                    <h4 className="font-black text-xl dark:text-white uppercase tracking-tighter">{selectedLedger.name}</h4>
+                                    <p className="text-xs text-gray-500 font-bold uppercase tracking-widest">{selectedLedger.type}</p>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <Card className="text-center">
+                                        <p className="text-[10px] font-bold text-gray-400 uppercase">Outstanding</p>
+                                        <p className="font-black text-primary">₹{selectedLedger.balance.toLocaleString()}</p>
+                                    </Card>
+                                    <Card className="text-center">
+                                        <p className="text-[10px] font-bold text-gray-400 uppercase">Credit Days</p>
+                                        <p className="font-black dark:text-white">45 Days</p>
+                                    </Card>
+                                </div>
+                                <button className="w-full py-4 bg-primary text-white rounded-2xl font-black shadow-xl shadow-primary/20">VIEW LEDGER STATEMENT</button>
+                            </div>
+                        )}
+                    </Modal>
+                </div>
+            );
+        };
+
+        const MoreView = ({ data, settings, setSettings }) => {
+            const [activeSubView, setActiveSubView] = useState(null);
+
+            const menu = [
+                { id: 'user', name: 'User Management', icon: 'Users', color: 'text-blue-500', sub: 'Admin, Sales Reps' },
+                { id: 'company', name: 'Company Management', icon: 'Building2', color: 'text-orange-500', sub: 'Tally Connectors' },
+                { id: 'team', name: 'Sales Team', icon: 'Target', color: 'text-green-500', sub: 'Daily Check-ins' },
+                { id: 'security', name: 'Data Security', icon: 'ShieldCheck', color: 'text-purple-500', sub: '7-Level Encryption' },
+                { id: 'settings', name: 'App Settings', icon: 'Settings', color: 'text-gray-500', sub: 'Themes, GST, Privacy' }
+            ];
+
+            if (activeSubView) {
+                return (
+                    <div className="flex flex-col h-full bg-white dark:bg-gray-950 z-50">
+                        <header className="p-4 border-b dark:border-gray-800 flex items-center gap-4">
+                            <button onClick={() => setActiveSubView(null)} className="p-2 dark:text-white"><Icon name="ArrowLeft" size={20} /></button>
+                            <h3 className="font-black text-lg dark:text-white uppercase tracking-tighter">{activeSubView.name}</h3>
+                        </header>
+                        <div className="p-4 space-y-4">
+                            <div className="p-12 text-center opacity-50">
+                                <Icon name={activeSubView.icon} size={64} className="mx-auto mb-4" />
+                                <p className="font-bold dark:text-white">This module is active and synced with REBOXY TRADERS.</p>
+                                <p className="text-xs">Version 3.2.1 Stable</p>
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="p-4 space-y-6 pb-24 overflow-y-auto">
+                    <div className="flex items-center gap-4 p-6 bg-gradient-to-br from-primary to-primary/80 text-white rounded-[2rem] shadow-2xl shadow-primary/30 relative overflow-hidden">
+                        <div className="absolute -top-10 -right-10 w-32 h-32 bg-white/10 rounded-full blur-2xl"></div>
+                        <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-md border border-white/20 ring-4 ring-white/10">
+                            <Icon name="User" size={32} />
+                        </div>
+                        <div>
+                            <p className="text-xl font-black uppercase tracking-tighter">Admin User</p>
+                            <p className="text-[10px] font-bold opacity-80 uppercase tracking-widest bg-black/20 px-2 py-0.5 rounded-full inline-block mt-1">Super Admin</p>
+                        </div>
+                    </div>
+
+                    <div className="space-y-2">
+                        {menu.map(m => (
+                            <button key={m.id} onClick={() => setActiveSubView(m)} className="w-full flex items-center justify-between p-4 bg-white dark:bg-gray-800 rounded-[1.5rem] border border-gray-50 dark:border-gray-700 hover:border-primary/20 active:scale-[0.98] transition-all">
+                                <div className="flex items-center gap-4">
+                                    <div className={`p-3 rounded-2xl bg-gray-50 dark:bg-gray-700 ${m.color}`}>
+                                        <Icon name={m.icon} size={22} />
+                                    </div>
+                                    <div className="text-left">
+                                        <span className="block text-sm font-black dark:text-white uppercase tracking-tight">{m.name}</span>
+                                        <span className="block text-[10px] text-gray-500 font-medium">{m.sub}</span>
+                                    </div>
+                                </div>
+                                <Icon name="ChevronRight" size={18} className="text-gray-400" />
+                            </button>
+                        ))}
+                    </div>
+
+                    <Card className="flex items-center justify-between rounded-[1.5rem]">
+                        <div className="flex items-center gap-4">
+                            <div className="p-3 bg-gray-50 dark:bg-gray-700 rounded-2xl">
+                                <Icon name="Moon" size={22} className="dark:text-yellow-400" />
+                            </div>
+                            <span className="text-sm font-black dark:text-white uppercase tracking-tight">Dark Mode</span>
+                        </div>
+                        <button 
+                            onClick={() => {
+                                const newMode = !settings.darkMode;
+                                setSettings({...settings, darkMode: newMode});
+                                document.documentElement.classList.toggle('dark', newMode);
+                            }}
+                            className={`w-14 h-7 rounded-full transition-colors relative ${settings.darkMode ? 'bg-primary' : 'bg-gray-300'}`}
+                        >
+                            <div className={`absolute top-1 w-5 h-5 bg-white rounded-full transition-all shadow-md ${settings.darkMode ? 'left-8' : 'left-1'}`}></div>
+                        </button>
+                    </Card>
+
+                    <div className="pt-8 text-center">
+                        <div className="flex justify-center gap-4 mb-4">
+                            <Icon name="Github" size={16} className="text-gray-400" />
+                            <Icon name="Twitter" size={16} className="text-gray-400" />
+                            <Icon name="Linkedin" size={16} className="text-gray-400" />
+                        </div>
+                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">REBOXY TRADERS CLONE • V3.2.1</p>
+                        <p className="text-[10px] text-gray-400 mt-1">Designed by Antigravity Studio</p>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- MAIN APP COMPONENT ---
+        const App = () => {
+            const { data, setData, sync } = useBizData();
+            const [view, setView] = useState('Dashboard');
+            const [isSyncing, setIsSyncing] = useState(false);
+            const [activeCompany, setActiveCompany] = useState(data.companies[0]);
+            const [searchOpen, setSearchOpen] = useState(false);
+            const [searchQuery, setSearchQuery] = useState('');
+
+            useEffect(() => {
+                if (data.settings?.darkMode) document.documentElement.classList.add('dark');
+                // lucide.createIcons() not needed for LucideReact
+            }, []);
+
+            const handleSync = async () => {
+                setIsSyncing(true);
+                await sync();
+                setIsSyncing(false);
+            };
+
+            const searchResults = useMemo(() => {
+                if (!searchQuery) return [];
+                const q = searchQuery.toLowerCase();
+                const customers = data.ledgers.filter(l => l.name.toLowerCase().includes(q)).slice(0, 5).map(l => ({...l, resType: 'Ledger'}));
+                const items = data.stockItems.filter(i => i.name.toLowerCase().includes(q)).slice(0, 5).map(i => ({...i, resType: 'Stock'}));
+                const vouchers = data.vouchers.filter(v => v.vNo.toLowerCase().includes(q) || v.partyName.toLowerCase().includes(q)).slice(0, 5).map(v => ({...v, resType: 'Voucher'}));
+                return [...customers, ...items, ...vouchers];
+            }, [searchQuery, data]);
+
+            return (
+                <div className="mobile-container bg-background dark:bg-gray-950 shadow-2xl transition-all duration-500 overflow-hidden">
+                    {/* Header */}
+                    <header className="p-4 flex items-center justify-between border-b dark:border-gray-800 bg-white/95 dark:bg-gray-900/95 backdrop-blur-md z-40">
+                        <div className="flex items-center gap-3">
+                             <div className="w-10 h-10 bg-primary rounded-[1rem] flex items-center justify-center text-white shadow-lg shadow-primary/20 rotate-3">
+                                <Icon name="Zap" size={24} />
+                             </div>
+                             <div>
+                                <div className="flex items-center gap-1 cursor-pointer">
+                                    <h1 className="font-black text-sm dark:text-white uppercase tracking-tighter leading-tight">{activeCompany.name}</h1>
+                                    <Icon name="ChevronDown" size={14} className="text-gray-400" />
+                                </div>
+                                <p className="text-[9px] text-gray-500 font-bold uppercase tracking-widest">Last synced: {new Date(data.settings.syncTime).toLocaleTimeString()}</p>
+                             </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <button onClick={handleSync} className={`p-2.5 rounded-2xl transition-all shadow-sm ${isSyncing ? 'animate-spin text-primary bg-primary/10' : 'text-gray-500 bg-gray-50 dark:bg-gray-800 hover:bg-gray-100'}`}>
+                                <Icon name="RefreshCw" size={20} />
+                            </button>
+                            <button onClick={() => setSearchOpen(true)} className="p-2.5 text-gray-500 bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 rounded-2xl shadow-sm transition-all active:scale-90">
+                                <Icon name="Search" size={20} />
+                            </button>
+                            <div className="w-9 h-9 rounded-2xl bg-accent text-white flex items-center justify-center font-black text-xs ring-4 ring-accent/10 shadow-lg shadow-accent/20">
+                                AD
+                            </div>
+                        </div>
+                    </header>
+
+                    {/* View Area */}
+                    <main className="flex-1 overflow-hidden relative">
+                        <div className="absolute inset-0 overflow-y-auto no-scrollbar">
+                           {view === 'Dashboard' && <Dashboard data={data} />}
+                           {view === 'Reports' && <ReportsView data={data} />}
+                           {view === 'Entries' && <EntriesView data={data} setData={setData} />}
+                           {view === 'Outstanding' && <OutstandingView data={data} />}
+                           {view === 'More' && <MoreView data={data} settings={data.settings} setSettings={(s) => setData({...data, settings: s})} />}
+                        </div>
+                    </main>
+
+                    {/* Bottom Nav */}
+                    <nav className="fixed bottom-0 w-full max-w-[420px] bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border-t dark:border-gray-800 px-4 py-3 pb-6 flex justify-between items-center z-50 rounded-t-[2.5rem] shadow-[0_-10px_40px_rgba(0,0,0,0.05)]">
+                        {[
+                            { id: 'Dashboard', icon: 'LayoutDashboard' },
+                            { id: 'Reports', icon: 'BarChart' },
+                            { id: 'Entries', icon: 'PlusSquare' },
+                            { id: 'Outstanding', icon: 'Clock' },
+                            { id: 'More', icon: 'Menu' }
+                        ].map(item => (
+                            <button 
+                                key={item.id} 
+                                onClick={() => setView(item.id)}
+                                className={`flex flex-col items-center gap-1.5 transition-all relative ${view === item.id ? 'text-primary' : 'text-gray-400'}`}
+                            >
+                                {view === item.id && <div className="absolute -top-3 w-1.5 h-1.5 bg-primary rounded-full blur-[1px]"></div>}
+                                <div className={`p-2 rounded-2xl transition-all ${view === item.id ? 'bg-primary/10 scale-110 shadow-inner' : ''}`}>
+                                    <Icon name={item.icon} size={22} />
+                                </div>
+                                <span className={`text-[10px] font-black uppercase tracking-tighter ${view === item.id ? 'opacity-100' : 'opacity-60'}`}>{item.id}</span>
+                            </button>
+                        ))}
+                    </nav>
+
+                    {/* Global Search Modal */}
+                    <Modal isOpen={searchOpen} onClose={() => { setSearchOpen(false); setSearchQuery(''); }} title="Super Search">
+                        <div className="space-y-6">
+                            <div className="relative group">
+                                <Icon name="Search" className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-primary transition-colors" size={20} />
+                                <input 
+                                    autoFocus placeholder="Search customers, items, bills..." 
+                                    className="w-full pl-12 pr-4 py-4 bg-gray-50 dark:bg-gray-800 rounded-[1.5rem] border-none focus:ring-2 ring-primary dark:text-white transition-all shadow-inner" 
+                                    onChange={e => setSearchQuery(e.target.value)}
+                                    value={searchQuery}
+                                />
+                            </div>
+                            
+                            <div className="space-y-4">
+                                {searchResults.length > 0 ? (
+                                    <div className="space-y-2">
+                                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Results</p>
+                                        {searchResults.map((res, i) => (
+                                            <div key={i} className="flex items-center justify-between p-4 bg-white dark:bg-gray-900 border border-transparent hover:border-primary/20 rounded-2xl shadow-sm transition-all cursor-pointer">
+                                                <div className="flex items-center gap-4">
+                                                    <Badge type={res.resType === 'Ledger' ? 'info' : res.resType === 'Stock' ? 'warning' : 'success'}>{res.resType}</Badge>
+                                                    <div>
+                                                        <p className="text-sm font-black dark:text-white uppercase tracking-tight">{res.name || res.vNo}</p>
+                                                        <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">{res.partyName || res.category || res.city}</p>
+                                                    </div>
+                                                </div>
+                                                <Icon name="ArrowRight" size={16} className="text-gray-300" />
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="space-y-3">
+                                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Quick Filters</p>
+                                        <div className="flex flex-wrap gap-2">
+                                            {['Sales Today', 'Low Stock', 'Large Debts', 'Recent Orders', 'Tax Details'].map(s => (
+                                                <button key={s} className="px-4 py-2 bg-gray-100 dark:bg-gray-800 rounded-xl text-xs font-black uppercase tracking-tighter dark:text-white hover:bg-primary hover:text-white transition-all shadow-sm">
+                                                    {s}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </Modal>
+
+                    {/* Sync Toast */}
+                    {isSyncing && (
+                        <div className="fixed top-24 left-1/2 -translate-x-1/2 bg-black/90 dark:bg-white/95 text-white dark:text-black px-6 py-3 rounded-[2rem] shadow-2xl flex items-center gap-3 text-xs font-black uppercase tracking-widest z-[100] animate-in slide-in-from-top-10 duration-300 backdrop-blur-lg">
+                             <Icon name="Loader2" className="animate-spin text-primary" size={16} />
+                             Syncing REBOXY Tally...
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
