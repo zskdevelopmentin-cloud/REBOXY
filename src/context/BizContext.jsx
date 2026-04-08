@@ -25,6 +25,14 @@ export const BizProvider = ({ children }) => {
 
   // Initial Load & Auth Sync
   useEffect(() => {
+    if (!supabase) {
+      // If no supabase client, set loading false and use local data
+      setIsLoading(false);
+      const saved = localStorage.getItem(SEED_KEY);
+      if (saved) setData(JSON.parse(saved));
+      return;
+    }
+
     const init = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
@@ -50,6 +58,7 @@ export const BizProvider = ({ children }) => {
   }, []);
 
   const fetchData = async () => {
+    if (!supabase) return;
     setIsLoading(true);
     try {
       const [vch, ldgr, stck] = await Promise.all([
@@ -95,7 +104,7 @@ export const BizProvider = ({ children }) => {
       vouchers: [voucher, ...prev.vouchers]
     }));
 
-    if (isAuthenticated) {
+    if (isAuthenticated && supabase) {
         const { error } = await supabase.from('vouchers').insert([
             {
                 id: voucher.id,
@@ -118,6 +127,10 @@ export const BizProvider = ({ children }) => {
   };
 
   const login = async (email, password) => {
+    if (!supabase) {
+        addToast('Cloud connection not configured', 'error');
+        return;
+    }
     const { data: { user }, error } = await supabase.auth.signInWithPassword({
         email,
         password
@@ -132,14 +145,14 @@ export const BizProvider = ({ children }) => {
   };
 
   const logout = async () => {
-    await supabase.auth.signOut();
+    if (supabase) await supabase.auth.signOut();
     setIsAuthenticated(false);
     setCurrentUser(null);
     addToast('Logged out from cloud');
   };
 
   const migrateToCloud = async () => {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated || !supabase) return;
     addToast('Migration started...', 'info');
     
     // Push everything to Supabase
