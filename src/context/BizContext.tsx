@@ -1,32 +1,69 @@
+'use client';
+
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
-import { supabase } from '../lib/supabase';
-import { generateSeedData, SEED_KEY } from '../utils/seedData';
+import { supabase } from '@/lib/supabase';
+import { generateSeedData, SEED_KEY } from '@/utils/seedData';
+import { BizData, Voucher, User as AppUser } from '@/types';
 
-const BizContext = createContext();
+interface Toast {
+  id: number;
+  message: string;
+  type: 'success' | 'error' | 'info';
+}
 
-export const BizProvider = ({ children }) => {
-  const [data, setData] = useState({
-    vouchers: [],
-    ledgers: [],
-    stock: [],
-    users: [],
-    settings: {
-      company: { name: 'REBOXY TRADERS', gstin: '', address: '' },
-      syncTime: new Date().toISOString()
-    },
-    auth: { username: 'user', password: 'password' }
+interface BizContextType {
+  data: BizData;
+  syncData: () => Promise<void>;
+  addVoucher: (voucher: Voucher) => Promise<void>;
+  addToast: (message: string, type?: 'success' | 'error' | 'info') => void;
+  toasts: Toast[];
+  searchOpen: boolean;
+  setSearchOpen: (open: boolean) => void;
+  isAuthenticated: boolean;
+  currentUser: any;
+  login: (email: string, password: string) => Promise<any>;
+  logout: () => Promise<void>;
+  isLoading: boolean;
+  migrateToCloud: () => Promise<void>;
+}
+
+const BizContext = createContext<BizContextType | null>(null);
+
+export const BizProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [data, setData] = useState<BizData>(() => {
+    // We handle initial data in useEffect due to SSR
+    return {
+      vouchers: [],
+      ledgers: [],
+      stock: [],
+      users: [],
+      settings: {
+        darkMode: false,
+        currency: 'INR',
+        dateFormat: 'DD/MM/YYYY',
+        syncTime: new Date().toISOString(),
+        company: { name: 'REBOXY TRADERS', gstin: '', address: '' }
+      },
+      auth: { username: 'user', password: 'password' }
+    };
   });
 
-  const [toasts, setToasts] = useState([]);
+  const [toasts, setToasts] = useState<Toast[]>([]);
   const [searchOpen, setSearchOpen] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [currentUser, setCurrentUser] = useState(null);
+  const [currentUser, setCurrentUser] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [mounted, setMounted] = useState(false);
 
   // Initial Load & Auth Sync
   useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!mounted) return;
+    
     if (!supabase) {
-      // If no supabase client, set loading false and use local data
       setIsLoading(false);
       const saved = localStorage.getItem(SEED_KEY);
       if (saved) setData(JSON.parse(saved));
@@ -34,27 +71,31 @@ export const BizProvider = ({ children }) => {
     }
 
     const init = async () => {
+      if (!supabase) return;
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
         setIsAuthenticated(true);
         setCurrentUser(session.user);
         await fetchData();
       } else {
-        // Fallback to local if no cloud session
         const saved = localStorage.getItem(SEED_KEY);
         if (saved) setData(JSON.parse(saved));
+        else setData(generateSeedData());
       }
       setIsLoading(false);
     };
     init();
 
+    if (!supabase) return;
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setIsAuthenticated(!!session);
       setCurrentUser(session?.user || null);
       if (session) fetchData();
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      if (subscription) subscription.unsubscribe();
+    };
   }, []);
 
   const fetchData = async () => {
@@ -80,7 +121,7 @@ export const BizProvider = ({ children }) => {
     }
   };
 
-  const addToast = (message, type = 'success') => {
+  const addToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
     const id = Date.now();
     setToasts(prev => [...prev, { id, message, type }]);
     setTimeout(() => {
@@ -97,8 +138,7 @@ export const BizProvider = ({ children }) => {
     addToast('Cloud data synchronized');
   };
 
-  const addVoucher = async (voucher) => {
-    // Optimistic Update
+  const addVoucher = async (voucher: Voucher) => {
     setData(prev => ({
       ...prev,
       vouchers: [voucher, ...prev.vouchers]
@@ -126,7 +166,7 @@ export const BizProvider = ({ children }) => {
     }
   };
 
-  const login = async (email, password) => {
+  const login = async (email: string, password: string) => {
     if (!supabase) {
         addToast('Cloud connection not configured', 'error');
         return;
@@ -140,7 +180,7 @@ export const BizProvider = ({ children }) => {
         addToast(error.message, 'error');
         throw error;
     }
-    addToast(`Welcome back, ${user.email}`);
+    addToast(`Welcome back, ${user?.email}`);
     return user;
   };
 
@@ -155,7 +195,6 @@ export const BizProvider = ({ children }) => {
     if (!isAuthenticated || !supabase) return;
     addToast('Migration started...', 'info');
     
-    // Push everything to Supabase
     try {
         await Promise.all([
             supabase.from('ledgers').upsert(data.ledgers),
@@ -179,16 +218,20 @@ export const BizProvider = ({ children }) => {
     addToast,
     toasts,
     searchOpen,
-    setSearchOpen,
+    setSearchOpen: (open: boolean) => setSearchOpen(open),
     isAuthenticated,
     currentUser,
     login,
     logout,
-    isLoading,
+    isLoading: !mounted || isLoading,
     migrateToCloud
   };
 
   return <BizContext.Provider value={value}>{children}</BizContext.Provider>;
 };
 
-export const useBiz = () => useContext(BizContext);
+export const useBiz = () => {
+  const context = useContext(BizContext);
+  if (!context) throw new Error('useBiz must be used within BizProvider');
+  return context;
+};

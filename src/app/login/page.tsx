@@ -1,15 +1,17 @@
+'use client';
+
 import React, { useState } from 'react';
-import { useBiz } from '../context/BizContext';
+import { useBiz } from '@/context/BizContext';
 import { ShieldCheck, Mail, Lock, Fingerprint, Eye, EyeOff } from 'lucide-react';
 
-const Login = () => {
+const LoginPage = () => {
     const { login } = useBiz();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
 
-    const handleSubmit = async (e) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsLoading(true);
         try {
@@ -22,7 +24,7 @@ const Login = () => {
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-primary via-indigo-700 to-purple-900 flex flex-col items-center justify-center p-6 font-inter relative overflow-hidden">
+        <div className="min-h-screen bg-gradient-to-br from-blue-600 via-indigo-700 to-purple-900 flex flex-col items-center justify-center p-6 font-inter relative overflow-hidden">
             {/* Background elements */}
             <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-blue-400/20 rounded-full blur-3xl animate-pulse"></div>
             <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-purple-400/20 rounded-full blur-3xl animate-pulse"></div>
@@ -87,10 +89,10 @@ const Login = () => {
                         <button 
                             type="submit" 
                             disabled={isLoading}
-                            className="w-full py-4 bg-white text-primary rounded-2xl font-black uppercase tracking-widest shadow-xl hover:bg-blue-50 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed group"
+                            className="w-full py-4 bg-white text-blue-600 rounded-2xl font-black uppercase tracking-widest shadow-xl hover:bg-blue-50 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed group"
                         >
                             {isLoading ? (
-                                <div className="w-5 h-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin mx-auto"></div>
+                                <div className="w-5 h-5 border-2 border-blue-600/30 border-t-blue-600 rounded-full animate-spin mx-auto"></div>
                             ) : (
                                 "Identify & Enter"
                             )}
@@ -99,10 +101,10 @@ const Login = () => {
 
                     <div className="relative">
                         <div className="absolute inset-x-0 top-1/2 border-t border-white/10"></div>
-                        <span className="relative z-10 bg-[#2849c3] px-3 text-[10px] font-bold text-white/30 uppercase tracking-widest block mx-auto w-fit">Or Continue with</span>
+                        <span className="relative z-10 bg-[#3557d2] px-3 text-[10px] font-bold text-white/30 uppercase tracking-widest block mx-auto w-fit">Or Continue with</span>
                     </div>
 
-                    <button className="w-full py-4 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center gap-3 text-white font-bold hover:bg-white/10 transition-all active:scale-95">
+                    <button type="button" className="w-full py-4 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center gap-3 text-white font-bold hover:bg-white/10 transition-all active:scale-95">
                         <Fingerprint size={24} className="text-blue-400" />
                         <span className="uppercase text-xs tracking-widest">Biometric Identity</span>
                     </button>
@@ -113,9 +115,9 @@ const Login = () => {
                 </div>
             </div>
 
-            <div className="absolute bottom-6 text-white/20 text-[8px] font-black uppercase tracking-[1em]">V 2.4.0 • MIL-SPEC SECURITY</div>
+            <div className="absolute bottom-6 text-white/20 text-[8px] font-black uppercase tracking-[1em]">V 2.5.0 • NEXT-GEN SECURITY</div>
         </div>
     );
 };
 
-export default Login;
+export default LoginPage;

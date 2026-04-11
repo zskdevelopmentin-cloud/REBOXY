@@ -1,15 +1,17 @@
+'use client';
+
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useBiz } from '../context/BizContext';
+import { useRouter } from 'next/navigation';
+import { useBiz } from '@/context/BizContext';
 import { 
   User, Building2, Users, ShieldCheck, 
   Settings, LogOut, ChevronRight, Moon, 
-  Sun, Bell, Globe, DollarSign
+  Sun, Bell, Globe
 } from 'lucide-react';
 
-const More = () => {
-  const { data, updateSettings, deleteUser, logout, currentUser, migrateToCloud } = useBiz();
-  const navigate = useNavigate();
+const MorePage = () => {
+  const { data, logout, currentUser, migrateToCloud } = useBiz();
+  const router = useRouter();
 
   const menuItems = [
     { 
@@ -50,16 +52,6 @@ const More = () => {
     }
   ];
 
-  const handleToggleTheme = () => {
-    const isDark = !data.settings.darkMode;
-    updateSettings({ darkMode: isDark });
-    if (isDark) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  };
-
   return (
     <div className="flex flex-col h-full bg-background dark:bg-gray-950 overflow-y-auto no-scrollbar pb-32">
       {/* Profile Header */}
@@ -70,8 +62,8 @@ const More = () => {
                 <User size={32} />
             </div>
             <div>
-                <p className="text-xl font-black uppercase tracking-tighter">{currentUser?.name || 'Admin User'}</p>
-                <p className="text-[10px] font-bold uppercase tracking-widest opacity-70">{currentUser?.role || 'Super Admin'} • ID: 1024</p>
+                <p className="text-xl font-black uppercase tracking-tighter">{currentUser?.email?.split('@')[0] || 'Admin User'}</p>
+                <p className="text-[10px] font-bold uppercase tracking-widest opacity-70">Super Admin • ID: 1024</p>
                 <span className="inline-block mt-2 text-[8px] font-black uppercase tracking-widest bg-white/20 px-2 py-0.5 rounded-full">Pro Enterprise Plan</span>
             </div>
         </div>
@@ -82,7 +74,7 @@ const More = () => {
         {menuItems.map(item => (
             <button 
                 key={item.id} 
-                onClick={() => item.path ? navigate(item.path) : null}
+                onClick={() => item.path ? router.push(item.path) : null}
                 className="w-full flex items-center justify-between p-4 bg-white dark:bg-gray-800 rounded-3xl border border-gray-50 dark:border-gray-700 shadow-sm active:scale-[0.98] transition-all group"
             >
                 <div className="flex items-center gap-4">
@@ -106,12 +98,11 @@ const More = () => {
             <div className="flex items-center justify-between p-4 bg-white dark:bg-gray-800 rounded-3xl border border-gray-50 dark:border-gray-700">
                 <div className="flex items-center gap-4">
                     <div className="p-3 bg-gray-50 dark:bg-gray-900 rounded-2xl text-primary">
-                        {data.settings.darkMode ? <Moon size={22} /> : <Sun size={22} />}
+                        <Moon size={22} />
                     </div>
                     <span className="text-sm font-black dark:text-white uppercase tracking-tight">Dark Mode</span>
                 </div>
                 <button 
-                  onClick={handleToggleTheme}
                   className={`w-12 h-6 rounded-full transition-all relative ${data.settings.darkMode ? 'bg-primary' : 'bg-gray-200'}`}
                 >
                     <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${data.settings.darkMode ? 'left-7' : 'left-1'}`}></div>
@@ -145,10 +136,10 @@ const More = () => {
         >
             <LogOut size={20} /> Logout Account
         </button>
-        <p className="text-center text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-6">Version 2.4.0 (Build 512)</p>
+        <p className="text-center text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-6">Version 2.5.0 (Build 942)</p>
       </div>
     </div>
   );
 };
 
-export default More;
+export default MorePage;

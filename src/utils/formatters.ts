@@ -1,4 +1,4 @@
-export const formatCurrency = (amount) => {
+export const formatCurrency = (amount: number | undefined | null): string => {
   if (amount === undefined || amount === null) return '₹0';
   
   if (Math.abs(amount) >= 100000 && Math.abs(amount) < 10000000) {
@@ -14,7 +14,7 @@ export const formatCurrency = (amount) => {
   }).format(amount);
 };
 
-export const formatDate = (dateStr) => {
+export const formatDate = (dateStr: string): string => {
   const date = new Date(dateStr);
   const day = String(date.getDate()).padStart(2, '0');
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -22,10 +22,10 @@ export const formatDate = (dateStr) => {
   return `${day}/${month}/${year}`;
 };
 
-export const getRelativeTime = (dateStr) => {
+export const getRelativeTime = (dateStr: string): string => {
   const date = new Date(dateStr);
   const now = new Date();
-  const diffInMs = now - date;
+  const diffInMs = now.getTime() - date.getTime();
   const diffInMins = Math.floor(diffInMs / (1000 * 60));
   
   if (diffInMins < 1) return 'Just now';

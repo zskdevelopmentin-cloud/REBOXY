@@ -1,7 +1,9 @@
+import { BizData, Ledger, StockItem, Voucher, VoucherItem } from '../types';
+
 export const SEED_KEY = 'reboxy_data';
 
-export const generateSeedData = () => {
-  const customers = Array.from({ length: 15 }, (_, i) => ({
+export const generateSeedData = (): BizData => {
+  const customers: Ledger[] = Array.from({ length: 15 }, (_, i) => ({
     id: `cus_${i}`,
     name: `Customer ${i + 1} Enterprises`,
     type: 'Customer',
@@ -12,7 +14,7 @@ export const generateSeedData = () => {
     gst: `27AAAAA${Math.floor(Math.random() * 9000 + 1000)}A1Z${i}`
   }));
 
-  const suppliers = Array.from({ length: 10 }, (_, i) => ({
+  const suppliers: Ledger[] = Array.from({ length: 10 }, (_, i) => ({
     id: `sup_${i}`,
     name: `Supplier ${String.fromCharCode(65 + i)} Wholesale`,
     type: 'Supplier',
@@ -21,7 +23,7 @@ export const generateSeedData = () => {
     email: `vendor${i}@example.com`
   }));
 
-  const stockItems = Array.from({ length: 20 }, (_, i) => ({
+  const stockItems: StockItem[] = Array.from({ length: 20 }, (_, i) => ({
     id: `item_${i}`,
     name: `Product ${i + 1} - Premium Grade`,
     unit: 'PCS',
@@ -32,8 +34,7 @@ export const generateSeedData = () => {
     category: ['Electronics', 'Industrial', 'Retail'][Math.floor(Math.random() * 3)]
   }));
 
-  const vouchers = [];
-  const voucherTypes = ['Sales', 'Purchase', 'Receipt', 'Payment', 'Sales Order', 'Purchase Order', 'Credit Note', 'Debit Note'];
+  const vouchers: Voucher[] = [];
 
   // Seed 50 Sales Transactions
   for (let i = 0; i < 50; i++) {
@@ -70,7 +71,7 @@ export const generateSeedData = () => {
   }
 
   return {
-    vouchers: vouchers.sort((a, b) => new Date(b.date) - new Date(a.date)),
+    vouchers: vouchers.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
     ledgers: [...customers, ...suppliers],
     stock: stockItems,
     users: [
@@ -92,5 +93,5 @@ export const generateSeedData = () => {
       username: 'user',
       password: 'password'
     }
-  };
+  } as BizData;
 };

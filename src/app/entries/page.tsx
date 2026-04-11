@@ -1,14 +1,24 @@
+'use client';
+
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useBiz } from '../context/BizContext';
+import { useBiz } from '@/context/BizContext';
 import { 
   Receipt, ShoppingCart, ArrowDownLeft, ArrowUpRight, 
   FileText, FileCheck, MinusSquare, PlusSquare, 
   Plus, Trash2, ChevronRight, ArrowLeft
 } from 'lucide-react';
-import { formatCurrency } from '../utils/formatters';
+import { formatCurrency } from '@/utils/formatters';
+import { VoucherItem, Voucher } from '@/types';
 
-const EntryTypeCard = ({ id, icon: Icon, color, desc, onClick }) => (
+interface EntryTypeCardProps {
+  id: string;
+  icon: any;
+  color: string;
+  desc: string;
+  onClick: (id: any) => void;
+}
+
+const EntryTypeCard: React.FC<EntryTypeCardProps> = ({ id, icon: Icon, color, desc, onClick }) => (
   <button 
     onClick={() => onClick(id)}
     className="flex items-center gap-4 p-4 bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 text-left hover:border-primary/50 transition-all shadow-sm group"
@@ -24,16 +34,16 @@ const EntryTypeCard = ({ id, icon: Icon, color, desc, onClick }) => (
   </button>
 );
 
-const InvoiceForm = ({ type, onBack }) => {
+const InvoiceForm = ({ type, onBack }: { type: any, onBack: () => void }) => {
   const { data, addVoucher } = useBiz();
   const [partyId, setPartyId] = useState('');
-  const [items, setItems] = useState([{ itemId: '', qty: 1, rate: 0 }]);
+  const [items, setItems] = useState<VoucherItem[]>([{ itemId: '', qty: 1, rate: 0, total: 0 }]);
   
   const subtotal = items.reduce((sum, item) => sum + (item.qty * item.rate), 0);
   const tax = subtotal * 0.18;
   const total = subtotal + tax;
 
-  const handleSubmit = (e) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!partyId || items.some(i => !i.itemId)) return;
     
@@ -43,8 +53,9 @@ const InvoiceForm = ({ type, onBack }) => {
       type,
       date: new Date().toISOString(),
       partyId,
-      partyName: data.ledgers.find(l => l.id === partyId)?.name,
+      partyName: data.ledgers.find(l => l.id === partyId)?.name || 'Unknown',
       amount: total,
+      status: 'Fulfilled',
       items: items.map(i => ({ ...i, total: i.qty * i.rate }))
     });
     onBack();
@@ -74,7 +85,7 @@ const InvoiceForm = ({ type, onBack }) => {
                 <div className="space-y-3">
                     <label className="flex justify-between items-center text-[10px] font-bold text-gray-400 uppercase ml-1 tracking-widest">
                         Line Items
-                        <button type="button" onClick={() => setItems([...items, { itemId: '', qty: 1, rate: 0 }])} className="text-primary flex items-center gap-1"><Plus size={14} /> Add</button>
+                        <button type="button" onClick={() => setItems([...items, { itemId: '', qty: 1, rate: 0, total: 0 }])} className="text-primary flex items-center gap-1 font-black"><Plus size={14} /> Add</button>
                     </label>
                     
                     {items.map((item, i) => (
@@ -146,8 +157,8 @@ const InvoiceForm = ({ type, onBack }) => {
   );
 };
 
-const Entries = () => {
-  const [selectedType, setSelectedType] = useState(null);
+const EntriesPage = () => {
+  const [selectedType, setSelectedType] = useState<any>(null);
   const types = [
     { id: 'Sales', icon: Receipt, color: 'bg-green-500 shadow-green-500/20', desc: 'Create Sale Invoice' },
     { id: 'Purchase', icon: ShoppingCart, color: 'bg-orange-500 shadow-orange-500/20', desc: 'Book Purchase Bill' },
@@ -176,4 +187,4 @@ const Entries = () => {
   );
 };
 
-export default Entries;
+export default EntriesPage;

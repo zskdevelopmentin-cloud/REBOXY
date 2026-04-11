@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useMemo } from 'react';
 import { useBiz } from '../context/BizContext';
 import { formatCurrency, formatDate } from '../utils/formatters';
@@ -5,9 +7,10 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell 
 } from 'recharts';
 import { ArrowUpRight, ArrowDownLeft, TrendingUp, TrendingDown } from 'lucide-react';
+import Login from './login/page';
 
-const Dashboard = () => {
-  const { data } = useBiz();
+export default function DashboardPage() {
+  const { data, isAuthenticated } = useBiz();
   const today = new Date().toISOString().split('T')[0];
 
   const stats = useMemo(() => {
@@ -45,6 +48,10 @@ const Dashboard = () => {
       };
     });
   }, [data]);
+
+  if (!isAuthenticated) {
+    return <Login />;
+  }
 
   return (
     <div className="p-4 space-y-4 font-inter animate-in fade-in duration-500">
@@ -103,7 +110,7 @@ const Dashboard = () => {
                     return (
                       <div className="bg-gray-900 text-white p-2 rounded-lg text-[10px] font-bold shadow-xl">
                         <p>{payload[0].payload.fullDate}</p>
-                        <p className="text-primary">{formatCurrency(payload[0].value)}</p>
+                        <p className="text-primary">{formatCurrency(payload[0].value as number)}</p>
                       </div>
                     );
                   }
@@ -112,7 +119,7 @@ const Dashboard = () => {
               />
               <Bar dataKey="value" radius={[4, 4, 0, 0]}>
                 {chartData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={index === 6 ? '#1a56db' : '#e5e7eb'} className="dark:fill-gray-700" />
+                  <Cell key={`cell-${index}`} fill={index === 6 ? '#3b82f6' : '#e5e7eb'} className="dark:fill-gray-700" />
                 ))}
               </Bar>
             </BarChart>
@@ -147,6 +154,4 @@ const Dashboard = () => {
       </div>
     </div>
   );
-};
-
-export default Dashboard;
+}

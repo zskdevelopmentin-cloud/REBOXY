@@ -1,46 +1,35 @@
-import React, { useState, useMemo } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { BizProvider, useBiz } from './context/BizContext';
-import Header from './components/layout/Header';
-import BottomNav from './components/layout/BottomNav';
+'use client';
 
-// Real Pages
-import Login from './pages/Login';
-import Dashboard from './pages/Dashboard';
-import Reports from './pages/Reports';
-import Entries from './pages/Entries';
-import Outstanding from './pages/Outstanding';
-import More from './pages/More';
-import SecuritySettings from './pages/SecuritySettings';
-
+import React, { useState, useMemo, useEffect } from 'react';
+import { useBiz } from '@/context/BizContext';
+import Header from './Header';
+import BottomNav from './BottomNav';
 import { Search, X, ArrowRight } from 'lucide-react';
-import { formatCurrency } from './utils/formatters';
+import { formatCurrency } from '@/utils/formatters';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
-const AppContent = () => {
-  const { toasts, data, searchOpen, setSearchOpen, isAuthenticated, isLoading } = useBiz();
+const AppShell = ({ children }: { children: React.ReactNode }) => {
+  const { toasts, data, searchOpen, setSearchOpen, isAuthenticated, isLoading, addToast } = useBiz();
   const [searchQuery, setSearchQuery] = useState('');
+  const [mounted, setMounted] = useState(false);
+  const router = useRouter();
 
-  if (isLoading) {
-    return (
-      <div className="mobile-container flex items-center justify-center bg-background dark:bg-gray-950">
-        <div className="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
-      </div>
-    );
-  }
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const searchResults = useMemo(() => {
-    if (!searchQuery) return [];
+    if (!searchQuery || !mounted) return [];
     const q = searchQuery.toLowerCase();
-    const results = [];
+    const results: any[] = [];
     
-    // Search Vouchers
     data.vouchers.forEach(v => {
       if (v.vNo.toLowerCase().includes(q) || v.partyName.toLowerCase().includes(q)) {
         results.push({ ...v, resType: 'Voucher' });
       }
     });
 
-    // Search Ledgers
     data.ledgers.forEach(l => {
       if (l.name.toLowerCase().includes(q)) {
         results.push({ ...l, resType: 'Ledger' });
@@ -50,45 +39,35 @@ const AppContent = () => {
     return results.slice(0, 10);
   }, [searchQuery, data]);
 
-  if (!isAuthenticated) {
+  if (isLoading) {
     return (
-      <>
-        <Login />
-        {/* Toast System accessible on login page */}
-        <div className="fixed top-8 left-1/2 -translate-x-1/2 flex flex-col gap-2 z-[200] pointer-events-none">
-          {toasts.map(toast => (
-            <div key={toast.id} className="bg-white/95 dark:bg-black/90 text-black dark:text-white px-6 py-3 rounded-[2rem] shadow-2xl flex items-center gap-3 text-xs font-black uppercase tracking-widest animate-in slide-in-from-top-10 duration-300 backdrop-blur-lg pointer-events-auto border border-gray-100 dark:border-white/10">
-              <div className={`w-2 h-2 rounded-full ${toast.type === 'success' ? 'bg-green-500' : 'bg-red-500'}`} />
-              {toast.message}
-            </div>
-          ))}
-        </div>
-      </>
+      <div className="mobile-container flex items-center justify-center bg-background dark:bg-gray-950">
+        <div className="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
+      </div>
     );
   }
-  
+
+  // Auth Guard: If not authenticated, we only render children (which will likely be handled by a login page)
+  // or we can redirect. For REBOXY, we'll mimic the old logic.
+  if (!isAuthenticated) {
+    return <div className="mobile-container overflow-hidden">{children}</div>;
+  }
+
   return (
     <div className="mobile-container bg-background dark:bg-gray-950 shadow-2xl transition-all duration-500 overflow-hidden font-inter">
       <Header />
       <main className="flex-1 overflow-hidden relative">
-        <div className="absolute inset-0 overflow-y-auto no-scrollbar">
-          <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/reports/*" element={<Reports />} />
-            <Route path="/entries" element={<Entries />} />
-            <Route path="/outstanding" element={<Outstanding />} />
-            <Route path="/more/*" element={<More />} />
-            <Route path="/more/security" element={<SecuritySettings />} />
-          </Routes>
+        <div className="absolute inset-0 overflow-y-auto no-scrollbar pb-32">
+          {children}
         </div>
       </main>
       <BottomNav />
       
       {/* Toast System */}
-      <div className="fixed bottom-24 left-1/2 -translate-x-1/2 flex flex-col gap-2 z-[100] pointer-events-none">
+      <div className="fixed bottom-24 left-1/2 -translate-x-1/2 flex flex-col gap-2 z-[100] pointer-events-none w-full px-8 items-center">
         {toasts.map(toast => (
-          <div key={toast.id} className="bg-black/90 dark:bg-white/95 text-white dark:text-black px-6 py-3 rounded-[2rem] shadow-2xl flex items-center gap-3 text-xs font-black uppercase tracking-widest animate-in slide-in-from-bottom-10 duration-300 backdrop-blur-lg pointer-events-auto">
-            <div className={`w-2 h-2 rounded-full ${toast.type === 'success' ? 'bg-green-500' : 'bg-red-500'}`} />
+          <div key={toast.id} className="bg-black/90 dark:bg-white/95 text-white dark:text-black px-6 py-3 rounded-[2rem] shadow-2xl flex items-center gap-3 text-[10px] font-black uppercase tracking-widest animate-in slide-in-from-bottom-10 duration-300 backdrop-blur-lg pointer-events-auto max-w-full truncate text-center">
+            <div className={`w-2 h-2 rounded-full shrink-0 ${toast.type === 'success' ? 'bg-green-500' : 'bg-red-500'}`} />
             {toast.message}
           </div>
         ))}
@@ -105,7 +84,7 @@ const AppContent = () => {
                         autoFocus
                         value={searchQuery}
                         onChange={e => setSearchQuery(e.target.value)}
-                        placeholder="Search parties, bills, amounts..." 
+                        placeholder="Search parties, bills..." 
                         className="w-full pl-12 pr-4 py-4 bg-gray-50 dark:bg-gray-900 border-none rounded-2xl ring-2 ring-primary focus:ring-4 transition-all text-sm font-bold dark:text-white"
                     />
                 </div>
@@ -129,8 +108,8 @@ const AppContent = () => {
                     ))
                 ) : (
                     <div className="text-center py-20 opacity-30 flex flex-col items-center">
-                        <Search size={64} className="mb-4" />
-                        <p className="font-black uppercase tracking-widest text-xs">Start typing to search...</p>
+                        <Search size={64} className="mb-4 text-gray-400" />
+                        <p className="font-black uppercase tracking-widest text-xs dark:text-white">Start typing to search...</p>
                     </div>
                 )}
             </div>
@@ -140,12 +119,4 @@ const AppContent = () => {
   );
 };
 
-const App = () => (
-  <BizProvider>
-    <Router>
-      <AppContent />
-    </Router>
-  </BizProvider>
-);
-
-export default App;
+export default AppShell;

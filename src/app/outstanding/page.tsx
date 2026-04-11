@@ -1,12 +1,15 @@
-import React, { useState } from 'react';
-import { useBiz } from '../context/BizContext';
-import { formatCurrency } from '../utils/formatters';
-import { MessageCircle, Mail, Phone, ExternalLink, ChevronRight, ArrowLeft } from 'lucide-react';
+'use client';
 
-const Outstanding = () => {
+import React, { useState } from 'react';
+import { useBiz } from '@/context/BizContext';
+import { formatCurrency } from '@/utils/formatters';
+import { MessageCircle, Mail, ArrowLeft, ChevronRight } from 'lucide-react';
+import { Ledger, Voucher } from '@/types';
+
+const OutstandingPage = () => {
   const { data } = useBiz();
-  const [tab, setTab] = useState('Receivables');
-  const [selectedParty, setSelectedParty] = useState(null);
+  const [tab, setTab] = useState<'Receivables' | 'Payables'>('Receivables');
+  const [selectedParty, setSelectedParty] = useState<Ledger | null>(null);
 
   const filteredParties = data.ledgers
     .filter(l => tab === 'Receivables' ? l.type === 'Customer' : l.type === 'Supplier')
@@ -14,7 +17,7 @@ const Outstanding = () => {
 
   const totalOutstanding = filteredParties.reduce((sum, p) => sum + p.balance, 0);
 
-  const sendReminder = (party, method) => {
+  const sendReminder = (party: Ledger, method: 'wa' | 'mail') => {
     const msg = `Dear ${party.name}, a payment of ${formatCurrency(party.balance)} is outstanding for REBOXY TRADERS. Please clear it at the earliest.`;
     if (method === 'wa') {
       window.open(`https://wa.me/${party.phone}?text=${encodeURIComponent(msg)}`);
@@ -23,11 +26,11 @@ const Outstanding = () => {
     }
   };
 
-  const PartyDetail = ({ party }) => (
+  const PartyDetail = ({ party }: { party: Ledger }) => (
     <div className="flex flex-col h-full bg-background dark:bg-gray-950 animate-in slide-in-from-right duration-300 z-[60]">
         <header className="p-4 bg-white dark:bg-gray-900 border-b dark:border-gray-800 flex items-center gap-4">
             <button onClick={() => setSelectedParty(null)} className="p-2 dark:text-white"><ArrowLeft size={20} /></button>
-            <h3 className="text-xl font-black dark:text-white uppercase tracking-tighter">{party.name}</h3>
+            <h3 className="text-xl font-black dark:text-white uppercase tracking-tighter truncate">{party.name}</h3>
         </header>
         <div className="p-4 space-y-6">
             <div className="bg-primary p-6 rounded-[2rem] text-white shadow-xl shadow-primary/30 text-center">
@@ -49,7 +52,7 @@ const Outstanding = () => {
 
             <div className="space-y-3">
                 <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Pending Invoices</h4>
-                {data.vouchers.filter(v => v.partyId === party.id).map(v => (
+                {data.vouchers.filter((v: Voucher) => v.partyId === party.id).map((v: Voucher) => (
                     <div key={v.id} className="p-4 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 flex justify-between items-center shadow-sm">
                         <div>
                             <p className="text-sm font-black dark:text-white uppercase tracking-tight">{v.vNo}</p>
@@ -80,7 +83,7 @@ const Outstanding = () => {
         </div>
         
         <div className="flex p-1.5 bg-gray-100 dark:bg-gray-900 rounded-2xl">
-          {['Receivables', 'Payables'].map(t => (
+          {(['Receivables', 'Payables'] as const).map(t => (
             <button 
               key={t}
               onClick={() => setTab(t)}
@@ -102,7 +105,7 @@ const Outstanding = () => {
             className="p-4 bg-white dark:bg-gray-800 rounded-[1.5rem] border border-gray-50 dark:border-gray-700 shadow-sm flex items-center justify-between active:scale-[0.98] transition-all cursor-pointer group"
           >
             <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-2xl bg-gray-50 dark:bg-gray-900 flex items-center justify-center text-gray-400 font-black text-lg group-hover:bg-primary/5 group-hover:text-primary transition-colors">
+                <div className="w-12 h-12 rounded-2xl bg-gray-50 dark:bg-gray-900 flex items-center justify-center text-gray-400 font-black text-lg group-hover:bg-primary/5 group-hover:text-primary transition-colors uppercase">
                     {p.name[0]}
                 </div>
                 <div>
@@ -127,4 +130,4 @@ const Outstanding = () => {
   );
 };
 
-export default Outstanding;
+export default OutstandingPage;

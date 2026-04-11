@@ -1,10 +1,12 @@
+'use client';
+
 import React, { useState } from 'react';
-import { useBiz } from '../../context/BizContext';
-import { RefreshCw, Search, ChevronDown, Bell } from 'lucide-react';
-import { getRelativeTime } from '../../utils/formatters';
+import { useBiz } from '@/context/BizContext';
+import { RefreshCw, Search, ChevronDown } from 'lucide-react';
+import { getRelativeTime } from '@/utils/formatters';
 
 const Header = () => {
-  const { data, syncData, addToast, setSearchOpen, currentUser } = useBiz();
+  const { data, syncData, setSearchOpen, currentUser } = useBiz();
   const [isSyncing, setIsSyncing] = useState(false);
 
   const handleSync = async () => {
@@ -12,6 +14,10 @@ const Header = () => {
     await syncData();
     setIsSyncing(false);
   };
+
+  const initials = currentUser?.email
+    ? currentUser.email.substring(0, 2).toUpperCase()
+    : 'AD';
 
   return (
     <header className="p-4 flex items-center justify-between border-b dark:border-gray-800 bg-white/95 dark:bg-gray-900/95 backdrop-blur-md sticky top-0 z-40">
@@ -35,6 +41,7 @@ const Header = () => {
       <div className="flex items-center gap-2">
         <button 
           onClick={handleSync}
+          disabled={isSyncing}
           className={`p-2.5 rounded-2xl transition-all shadow-sm ${
             isSyncing ? 'animate-spin text-primary bg-primary/10' : 'text-gray-500 bg-gray-50 dark:bg-gray-800 hover:bg-gray-100'
           }`}
@@ -48,7 +55,7 @@ const Header = () => {
           <Search size={20} />
         </button>
         <div className="w-9 h-9 rounded-2xl bg-accent text-white flex items-center justify-center font-black text-xs ring-4 ring-accent/10 shadow-lg shadow-accent/20 cursor-pointer">
-          {currentUser ? currentUser.name.split(' ').map(n => n[0]).join('').toUpperCase() : 'AD'}
+          {initials}
         </div>
       </div>
     </header>
