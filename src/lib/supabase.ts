@@ -1,12 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://moovlhyooaupzflupdaq.supabase.co';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+const supabaseUrl = 'https://pdznfqregaqnddynfyfx.supabase.co';
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBkem5mcXJlZ2FxbmRkeW5meWZ4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2NjMzMjgsImV4cCI6MjA5MTIzOTMyOH0.DK5SnVhegaey0ZFCZjMjU4kBqmd7NryFp0CLQhqufUQ';
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.warn('Supabase URL or Anon Key is missing. Check your environment variables.');
-}
-
-export const supabase = (supabaseUrl && supabaseAnonKey)
-  ? createClient(supabaseUrl, supabaseAnonKey)
-  : null;
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);

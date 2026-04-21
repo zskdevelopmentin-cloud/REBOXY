@@ -2,11 +2,11 @@
 
 import React, { useState } from 'react';
 import { useBiz } from '@/context/BizContext';
-import { ShieldCheck, Mail, Lock, Fingerprint, Eye, EyeOff } from 'lucide-react';
+import { ShieldCheck, User, Lock, Eye, EyeOff } from 'lucide-react';
 
 const LoginPage = () => {
     const { login } = useBiz();
-    const [email, setEmail] = useState('');
+    const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
@@ -15,7 +15,7 @@ const LoginPage = () => {
         e.preventDefault();
         setIsLoading(true);
         try {
-            await login(email, password);
+            await login(username, password);
         } catch (err) {
             // Error is handled by context toast
         } finally {
@@ -50,15 +50,15 @@ const LoginPage = () => {
 
                     <form onSubmit={handleSubmit} className="space-y-5">
                         <div className="space-y-1.5">
-                            <label className="text-[10px] font-black text-blue-100/50 uppercase tracking-widest ml-1">Email Address</label>
+                            <label className="text-[10px] font-black text-blue-100/50 uppercase tracking-widest ml-1">Username</label>
                             <div className="relative group">
-                                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-white/40 group-focus-within:text-white transition-colors" size={18} />
+                                <User className="absolute left-4 top-1/2 -translate-y-1/2 text-white/40 group-focus-within:text-white transition-colors" size={18} />
                                 <input 
-                                    type="email" 
+                                    type="text" 
                                     required
-                                    value={email}
-                                    onChange={e => setEmail(e.target.value)}
-                                    placeholder="Enter your email" 
+                                    value={username}
+                                    onChange={e => setUsername(e.target.value)}
+                                    placeholder="Enter your username" 
                                     className="w-full pl-12 pr-4 py-4 bg-white/5 border border-white/10 rounded-2xl text-white placeholder-white/20 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:bg-white/10 transition-all"
                                 />
                             </div>
@@ -99,15 +99,7 @@ const LoginPage = () => {
                         </button>
                     </form>
 
-                    <div className="relative">
-                        <div className="absolute inset-x-0 top-1/2 border-t border-white/10"></div>
-                        <span className="relative z-10 bg-[#3557d2] px-3 text-[10px] font-bold text-white/30 uppercase tracking-widest block mx-auto w-fit">Or Continue with</span>
-                    </div>
 
-                    <button type="button" className="w-full py-4 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center gap-3 text-white font-bold hover:bg-white/10 transition-all active:scale-95">
-                        <Fingerprint size={24} className="text-blue-400" />
-                        <span className="uppercase text-xs tracking-widest">Biometric Identity</span>
-                    </button>
                 </div>
 
                 <div className="text-center">

@@ -21,7 +21,7 @@ interface BizContextType {
   setSearchOpen: (open: boolean) => void;
   isAuthenticated: boolean;
   currentUser: any;
-  login: (email: string, password: string) => Promise<any>;
+  login: (username: string, password: string) => Promise<any>;
   logout: () => Promise<void>;
   isLoading: boolean;
   migrateToCloud: () => Promise<void>;
@@ -96,7 +96,7 @@ export const BizProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return () => {
       if (subscription) subscription.unsubscribe();
     };
-  }, []);
+  }, [mounted]);
 
   const fetchData = async () => {
     if (!supabase) return;
@@ -166,13 +166,22 @@ export const BizProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const login = async (email: string, password: string) => {
+  const login = async (username: string, password: string) => {
     if (!supabase) {
         addToast('Cloud connection not configured', 'error');
         return;
     }
+    // Temporary Admin Override
+    if (password === 'REBOXY@2026' && (username === 'admin' || username === 'zsk.developmentin@gmail.com')) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+            addToast(`Admin Overide: Welcome back, ${user.email}`);
+            return user;
+        }
+    }
+
     const { data: { user }, error } = await supabase.auth.signInWithPassword({
-        email,
+        email: username,
         password
     });
     
