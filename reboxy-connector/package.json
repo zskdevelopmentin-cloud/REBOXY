@@ -1,0 +1,13 @@
+{
+  "name": "reboxy-connector",
+  "version": "1.0.0",
+  "description": "Tally Desktop Connector for REBOXY",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "axios": "^1.6.8",
+    "dotenv": "^16.4.5"
+  }
+}

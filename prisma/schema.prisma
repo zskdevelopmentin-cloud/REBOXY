@@ -1,0 +1,147 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String?
+  role      String   @default("VIEWER") // SUPER_ADMIN, ADMIN, ACCOUNTANT, SALES_STAFF, VIEWER
+  companyId String?
+  company   Company? @relation(fields: [companyId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  status    String   @default("ACTIVE") // ACTIVE, DISABLED
+}
+
+model Company {
+  id             String    @id @default(uuid())
+  name           String
+  gstin          String?
+  address        String?
+  financialYear  String?
+  tallyConnected Boolean   @default(false)
+  lastSyncTime   DateTime?
+  users          User[]
+  ledgers        Ledger[]
+  inventory      InventoryItem[]
+  syncLogs       SyncLog[]
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  
+  // Relations to transactions and vouchers can be derived from ledgers or directly linked
+  vouchers       Voucher[]
+}
+
+model Ledger {
+  id             String    @id @default(uuid())
+  companyId      String
+  company        Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name           String
+  group          String    @default("Sundry Debtors") // Sundry Debtors, Sundry Creditors, Cash-in-Hand, Bank Accounts, etc.
+  openingBalance Float     @default(0)
+  closingBalance Float     @default(0)
+  contactPerson  String?
+  phone          String?
+  email          String?
+  address        String?
+  gstin          String?
+  type           String    @default("Customer") // Customer, Supplier, Cash, Bank, etc.
+  
+  vouchersParty  Voucher[] @relation("PartyLedger")
+  vouchersSales  Voucher[] @relation("SalesLedger")
+  
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+model InventoryItem {
+  id             String    @id @default(uuid())
+  companyId      String
+  company        Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name           String
+  category       String?
+  unit           String    @default("Nos")
+  hsnCode        String?
+  taxRate        Float     @default(0)
+  openingStock   Float     @default(0)
+  currentStock   Float     @default(0)
+  purchasePrice  Float     @default(0)
+  salesPrice     Float     @default(0)
+  minStockLevel  Float     @default(0)
+  
+  voucherItems   VoucherItem[]
+  
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+model Voucher {
+  id             String    @id @default(uuid())
+  companyId      String
+  company        Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  vNo            String
+  type           String    // Sales, Purchase, Receipt, Payment, Journal, Contra
+  date           DateTime
+  
+  partyId        String?
+  party          Ledger?   @relation("PartyLedger", fields: [partyId], references: [id])
+  
+  ledgerId       String?
+  ledger         Ledger?   @relation("SalesLedger", fields: [ledgerId], references: [id])
+  
+  amount         Float     @default(0)
+  narration      String?
+  status         String    @default("COMPLETED") // PENDING, COMPLETED, CANCELLED
+  
+  items          VoucherItem[]
+  
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+model VoucherItem {
+  id             String    @id @default(uuid())
+  voucherId      String
+  voucher        Voucher   @relation(fields: [voucherId], references: [id], onDelete: Cascade)
+  
+  itemId         String?
+  item           InventoryItem? @relation(fields: [itemId], references: [id])
+  
+  description    String?
+  quantity       Float     @default(0)
+  rate           Float     @default(0)
+  amount         Float     @default(0)
+  discount       Float     @default(0)
+  taxAmount      Float     @default(0)
+}
+
+model SyncLog {
+  id             String    @id @default(uuid())
+  companyId      String
+  company        Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  status         String    // SUCCESS, FAILED, IN_PROGRESS
+  startTime      DateTime  @default(now())
+  endTime        DateTime?
+  recordsSynced  Int       @default(0)
+  errorDetails   String?
+}
+
+model AuditLog {
+  id             String    @id @default(uuid())
+  userId         String?
+  action         String
+  entity         String
+  entityId       String?
+  details        String?
+  createdAt      DateTime  @default(now())
+}
