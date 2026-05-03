@@ -131,7 +131,10 @@ const MorePage = () => {
             <Globe size={20} /> Sync to Cloud DB
         </button>
         <button 
-            onClick={logout}
+            onClick={async () => {
+                await logout();
+                router.push('/');
+            }}
             className="w-full flex items-center justify-center gap-3 p-5 text-red-500 bg-red-50 dark:bg-red-900/10 rounded-[2rem] font-black uppercase tracking-widest text-sm active:scale-95 transition-all"
         >
             <LogOut size={20} /> Logout Account
