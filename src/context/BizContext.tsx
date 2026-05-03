@@ -1,6 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { BizData } from '@/types';
 
 interface Toast {
   id: number;
@@ -20,6 +21,11 @@ interface BizContextType {
   isLoading: boolean;
   dashboardData: any;
   refreshDashboard: () => Promise<void>;
+  // Legacy properties to prevent build errors on older pages
+  data: BizData;
+  syncData: () => Promise<void>;
+  addVoucher: (voucher: any) => Promise<void>;
+  migrateToCloud: () => Promise<void>;
 }
 
 const BizContext = createContext<BizContextType | null>(null);
@@ -99,6 +105,26 @@ export const BizProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     addToast('Logged out successfully');
   };
 
+  // Legacy dummy data to prevent build/runtime errors on unmigrated pages
+  const fallbackData = {
+    vouchers: dashboardData?.recentVouchers || [],
+    ledgers: [],
+    stock: [],
+    users: [],
+    settings: {
+      company: { name: 'REBOXY', gstin: '', address: '' },
+      darkMode: false,
+      currency: 'INR',
+      dateFormat: 'DD/MM/YYYY',
+      syncTime: new Date().toISOString()
+    },
+    auth: { username: '', password: '' }
+  };
+
+  const syncData = async () => {};
+  const addVoucher = async () => {};
+  const migrateToCloud = async () => {};
+
   const value = {
     toasts,
     addToast,
@@ -110,7 +136,11 @@ export const BizProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     logout,
     isLoading,
     dashboardData,
-    refreshDashboard
+    refreshDashboard,
+    data: fallbackData,
+    syncData,
+    addVoucher,
+    migrateToCloud
   };
 
   return <BizContext.Provider value={value}>{children}</BizContext.Provider>;
