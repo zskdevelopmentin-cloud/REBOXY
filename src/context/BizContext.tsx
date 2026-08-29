@@ -62,9 +62,12 @@ export const BizProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const res = await fetch('/api/dashboard');
       if (res.ok) {
         setDashboardData(await res.json());
+      } else {
+        setDashboardData({ sales: 0, purchases: 0, receivables: 0, payables: 0, recentVouchers: [] });
       }
     } catch (error) {
       console.error('Failed to refresh dashboard', error);
+      setDashboardData({ sales: 0, purchases: 0, receivables: 0, payables: 0, recentVouchers: [] });
     }
   };
 

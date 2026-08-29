@@ -10,7 +10,13 @@ import { ArrowUpRight, ArrowDownLeft, TrendingUp, TrendingDown } from 'lucide-re
 import Login from './login/page';
 
 export default function DashboardPage() {
-  const { dashboardData, isAuthenticated } = useBiz();
+  const { dashboardData, isAuthenticated, refreshDashboard } = useBiz();
+
+  React.useEffect(() => {
+    if (isAuthenticated && !dashboardData) {
+      refreshDashboard();
+    }
+  }, [isAuthenticated, dashboardData, refreshDashboard]);
 
   if (!isAuthenticated) {
     return <Login />;

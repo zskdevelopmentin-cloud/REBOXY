@@ -3,9 +3,11 @@
 import React, { useState } from 'react';
 import { useBiz } from '@/context/BizContext';
 import { ShieldCheck, User, Lock, Eye, EyeOff } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 const LoginPage = () => {
     const { login } = useBiz();
+    const router = useRouter();
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
@@ -16,6 +18,7 @@ const LoginPage = () => {
         setIsLoading(true);
         try {
             await login(username, password);
+            router.push('/');
         } catch (err) {
             // Error is handled by context toast
         } finally {

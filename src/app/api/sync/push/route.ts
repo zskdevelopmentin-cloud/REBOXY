@@ -19,35 +19,96 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: 'Missing required payload' }, { status: 400 });
         }
 
-        // Verify company exists
-        const company = await db.company.findUnique({ where: { id: companyId } });
+        // Verify company exists or auto-create
+        let companyName = data.companyName || companyId;
+        let company = await db.company.findUnique({ where: { id: companyId } });
         if (!company) {
-             return NextResponse.json({ error: 'Company not found' }, { status: 404 });
+            const firstCompany = await db.company.findFirst();
+            if (firstCompany) {
+                company = firstCompany;
+            } else {
+                company = await db.company.create({
+                    data: {
+                        id: companyId,
+                        name: companyName,
+                        tallyConnected: true
+                    }
+                });
+            }
         }
+        const activeCompanyId = company.id;
 
         // Create a SyncLog entry
         const syncLog = await db.syncLog.create({
             data: {
-                companyId,
+                companyId: activeCompanyId,
                 status: 'IN_PROGRESS',
             }
         });
 
-        // Simulating the upsert of Ledgers and Vouchers from `data`
-        // In a real scenario, we loop through data.ledgers and data.vouchers to upsert
         let recordsSynced = 0;
 
+        // Upsert Ledgers
         if (data.ledgers && Array.isArray(data.ledgers)) {
-            recordsSynced += data.ledgers.length;
+            for (const l of data.ledgers) {
+                if (!l.name) continue;
+                const id = String(l.tallyId || `${activeCompanyId}-${l.name}`);
+                await db.ledger.upsert({
+                    where: { id },
+                    update: {
+                        companyId: activeCompanyId,
+                        name: l.name,
+                        group: l.group || 'Sundry Debtors',
+                        closingBalance: parseFloat(l.closingBalance) || 0,
+                        type: l.type || 'Customer'
+                    },
+                    create: {
+                        id,
+                        companyId: activeCompanyId,
+                        name: l.name,
+                        group: l.group || 'Sundry Debtors',
+                        closingBalance: parseFloat(l.closingBalance) || 0,
+                        type: l.type || 'Customer'
+                    }
+                });
+                recordsSynced++;
+            }
         }
+
+        // Upsert Vouchers
         if (data.vouchers && Array.isArray(data.vouchers)) {
-            recordsSynced += data.vouchers.length;
+            for (const v of data.vouchers) {
+                if (!v.vNo) continue;
+                const id = String(v.tallyId || `${activeCompanyId}-${v.vNo}`);
+                await db.voucher.upsert({
+                    where: { id },
+                    update: {
+                        companyId: activeCompanyId,
+                        vNo: String(v.vNo),
+                        type: v.type || 'Sales',
+                        date: new Date(v.date || Date.now()),
+                        amount: parseFloat(v.amount) || 0,
+                        status: 'COMPLETED'
+                    },
+                    create: {
+                        id,
+                        companyId: activeCompanyId,
+                        vNo: String(v.vNo),
+                        type: v.type || 'Sales',
+                        date: new Date(v.date || Date.now()),
+                        amount: parseFloat(v.amount) || 0,
+                        status: 'COMPLETED'
+                    }
+                });
+                recordsSynced++;
+            }
         }
 
         // Update company sync status
         await db.company.update({
-            where: { id: companyId },
+            where: { id: activeCompanyId },
             data: { 
+                name: companyName,
                 tallyConnected: true,
                 lastSyncTime: new Date()
             }

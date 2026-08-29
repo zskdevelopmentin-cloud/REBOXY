@@ -8,7 +8,8 @@ const apiClient = axios.create({
     baseURL: API_BASE_URL,
     headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${SYNC_TOKEN}`
+        'Authorization': `Bearer ${SYNC_TOKEN}`,
+        'bypass-tunnel-reminder': 'true'
     },
     timeout: 30000 // 30 seconds timeout
 });
