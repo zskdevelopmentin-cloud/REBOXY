@@ -33,8 +33,8 @@ export default function DashboardPage() {
   return (
     <div className="p-4 space-y-4 font-inter animate-in fade-in duration-500 pb-20">
       
-      {/* Biz Analyst Metrics Cards - Grid Layout */}
-      <div className="space-y-3">
+      {/* Biz Analyst Metrics Cards - Responsive Grid Layout */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
 
         {/* 1. Sales & Credit Note */}
         <Link href="/sales" className="bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm flex items-center justify-between hover:border-primary/50 transition-all cursor-pointer group">
@@ -123,7 +123,7 @@ export default function DashboardPage() {
           <h4 className="text-xs font-black dark:text-white uppercase tracking-wider">Recent Transactions</h4>
           <span className="text-[10px] font-bold text-gray-400 uppercase">Realtime Tally Feed</span>
         </div>
-        <div className="space-y-2">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
           {dashboardData.recentVouchers?.length > 0 ? (
             dashboardData.recentVouchers.map((v: any) => (
               <div key={v.id} className="flex items-center justify-between p-3.5 bg-white dark:bg-gray-800 rounded-2xl border border-gray-50 dark:border-gray-700 shadow-sm active:scale-[0.98] transition-all">

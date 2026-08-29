@@ -17,7 +17,7 @@ const BottomNav = () => {
   ];
 
   return (
-    <nav className="fixed bottom-0 w-full max-w-[420px] bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border-t dark:border-gray-800 px-4 py-3 pb-6 flex justify-between items-center z-50 rounded-t-[2.5rem] shadow-[0_-10px_40px_rgba(0,0,0,0.05)]">
+    <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-lg md:max-w-xl bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border-t dark:border-gray-800 px-6 py-3 pb-6 flex justify-between items-center z-50 rounded-t-[2.5rem] shadow-[0_-10px_40px_rgba(0,0,0,0.08)]">
       {tabs.map((tab) => {
         const isActive = tab.path === '/' 
             ? pathname === '/' 

@@ -328,7 +328,7 @@ export default function SalesPage() {
             <p className="text-xs font-bold uppercase tracking-widest text-gray-400">No sales found for the selected period.</p>
           </div>
         ) : (
-          <div className="space-y-2">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5">
             {groupedData.map((item: any) => (
               <div
                 key={item.id}
