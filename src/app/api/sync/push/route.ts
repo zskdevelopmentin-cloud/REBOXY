@@ -74,12 +74,21 @@ export async function POST(req: Request) {
             }
         }
 
-        // Upsert Vouchers
+        // Upsert Vouchers & Line Items
         if (data.vouchers && Array.isArray(data.vouchers)) {
             for (const v of data.vouchers) {
                 if (!v.vNo) continue;
                 const id = String(v.tallyId || `${activeCompanyId}-${v.vNo}`);
-                await db.voucher.upsert({
+
+                let partyId = null;
+                if (v.partyName) {
+                    const partyLedger = await db.ledger.findFirst({
+                        where: { companyId: activeCompanyId, name: v.partyName }
+                    });
+                    if (partyLedger) partyId = partyLedger.id;
+                }
+
+                const voucher = await db.voucher.upsert({
                     where: { id },
                     update: {
                         companyId: activeCompanyId,
@@ -87,6 +96,7 @@ export async function POST(req: Request) {
                         type: v.type || 'Sales',
                         date: new Date(v.date || Date.now()),
                         amount: parseFloat(v.amount) || 0,
+                        partyId: partyId,
                         status: 'COMPLETED'
                     },
                     create: {
@@ -96,9 +106,35 @@ export async function POST(req: Request) {
                         type: v.type || 'Sales',
                         date: new Date(v.date || Date.now()),
                         amount: parseFloat(v.amount) || 0,
+                        partyId: partyId,
                         status: 'COMPLETED'
                     }
                 });
+
+                // Upsert VoucherItems if provided
+                if (v.items && Array.isArray(v.items) && v.items.length > 0) {
+                    await db.voucherItem.deleteMany({ where: { voucherId: voucher.id } });
+                    for (const item of v.items) {
+                        if (!item.name) continue;
+                        const invItem = await db.inventoryItem.upsert({
+                            where: { id: `${activeCompanyId}-${item.name}` },
+                            update: { name: item.name, salesPrice: parseFloat(item.rate) || 0 },
+                            create: { id: `${activeCompanyId}-${item.name}`, companyId: activeCompanyId, name: item.name, salesPrice: parseFloat(item.rate) || 0 }
+                        });
+
+                        await db.voucherItem.create({
+                            data: {
+                                voucherId: voucher.id,
+                                itemId: invItem.id,
+                                description: item.name,
+                                quantity: parseFloat(item.quantity) || 1,
+                                rate: parseFloat(item.rate) || 0,
+                                amount: parseFloat(item.amount) || 0
+                            }
+                        });
+                    }
+                }
+
                 recordsSynced++;
             }
         }

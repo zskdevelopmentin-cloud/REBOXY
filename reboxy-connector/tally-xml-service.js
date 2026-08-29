@@ -67,13 +67,36 @@ async function fetchTallyData() {
                     if (amt > amount) amount = amt;
                 });
 
+                // Parse Inventory Line Items if available in XML
+                const inventoryEntries = v['ALLINVENTORYENTRIES.LIST'] || v['INVENTORYENTRIES.LIST'] || [];
+                const invList = Array.isArray(inventoryEntries) ? inventoryEntries : (inventoryEntries ? [inventoryEntries] : []);
+                
+                const items = [];
+                invList.forEach(inv => {
+                    if (inv.STOCKITEMNAME) {
+                        const rawQty = String(inv.BILLEDQTY || inv.ACTUALQTY || inv.QTY || '1');
+                        const qtyMatch = rawQty.match(/-?[\d.]+/);
+                        const qty = qtyMatch ? Math.abs(parseFloat(qtyMatch[0])) : 1;
+                        const rate = Math.abs(parseFloat(inv.RATE) || 0);
+                        const amt = Math.abs(parseFloat(inv.AMOUNT) || (qty * rate));
+                        
+                        items.push({
+                            name: String(inv.STOCKITEMNAME),
+                            quantity: qty,
+                            rate: rate,
+                            amount: amt
+                        });
+                    }
+                });
+
                 vouchers.push({
                     tallyId: v.GUID || v['@_REMOTEID'] || String(vNo),
                     vNo: String(vNo),
                     type: String(vType),
                     date: parseTallyDate(rawDate),
                     partyName: String(partyName),
-                    amount: amount
+                    amount: amount,
+                    items: items
                 });
             }
         });
@@ -110,7 +133,7 @@ async function fetchTallyData() {
             }
         });
 
-        console.log(`[Tally Service] Successfully extracted ${vouchers.length} Vouchers (From ${fromDate} to ${toDate}) and ${ledgers.length} Ledgers for "${companyName}".`);
+        console.log(`[Tally Service] Successfully extracted ${vouchers.length} Vouchers and ${ledgers.length} Ledgers for "${companyName}".`);
 
         return {
             companyName,

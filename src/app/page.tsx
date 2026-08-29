@@ -1,10 +1,11 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import { useBiz } from '../context/BizContext';
 import { formatCurrency, formatDate } from '../utils/formatters';
 import { 
-  TrendingUp, TrendingDown, DollarSign, ShoppingCart, FileText, CreditCard, Scale, Landmark, ArrowUpRight, ArrowDownLeft
+  TrendingUp, TrendingDown, DollarSign, ShoppingCart, FileText, CreditCard, Scale, Landmark, ArrowUpRight, ArrowDownLeft, ChevronRight
 } from 'lucide-react';
 import Login from './login/page';
 
@@ -36,9 +37,9 @@ export default function DashboardPage() {
       <div className="space-y-3">
 
         {/* 1. Sales & Credit Note */}
-        <div className="bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm flex items-center justify-between">
+        <Link href="/sales" className="bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm flex items-center justify-between hover:border-primary/50 transition-all cursor-pointer group">
           <div className="flex items-center gap-3.5">
-            <div className="p-3 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl">
+            <div className="p-3 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl group-hover:scale-110 transition-transform">
               <DollarSign size={22} />
             </div>
             <div>
@@ -46,7 +47,8 @@ export default function DashboardPage() {
               <p className="text-[11px] text-gray-500 font-bold uppercase tracking-wider mt-0.5">Sales - Credit Note (Gross)</p>
             </div>
           </div>
-        </div>
+          <ChevronRight size={18} className="text-gray-300 group-hover:text-primary transition-colors" />
+        </Link>
 
         {/* 2. Purchase & Debit Note */}
         <div className="bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm flex items-center justify-between">
