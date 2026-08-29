@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { BizData } from '@/types';
 
-export type DatePreset = 'Today' | 'Yesterday' | 'This Week' | 'This Month' | 'Previous Month' | 'This Quarter' | 'Financial Year' | 'Custom';
+export type DatePreset = 'Today' | 'Yesterday' | 'This Week' | 'Previous Week' | 'This Month' | 'Previous Month' | 'This Quarter' | 'Financial Year' | 'Custom';
 
 interface Toast {
   id: number;

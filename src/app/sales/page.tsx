@@ -382,7 +382,7 @@ export default function SalesPage() {
                 <div
                   key={item.id}
                   onClick={() => {
-                    if (groupBy === 'bills' || groupBy === 'voucher') {
+                    if (groupBy === 'bills' || groupBy === 'voucherType') {
                       openVoucherDetail(item.id);
                     } else {
                       setSelectedLedger(item);
