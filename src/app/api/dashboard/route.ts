@@ -8,7 +8,7 @@ export async function GET(req: Request) {
     const role = req.headers.get('x-user-role');
 
     try {
-        let whereClause = {};
+        let whereClause: any = {};
         if (role !== 'SUPER_ADMIN' && companyId) {
             whereClause = { companyId };
         }
@@ -18,30 +18,47 @@ export async function GET(req: Request) {
             totalPurchases,
             receivables,
             payables,
-            stockValue,
             recentVouchers,
             activeCompanies,
             syncLogs
         ] = await Promise.all([
+            // Sales aggregate: Match type containing 'Sales' or any positive voucher
             db.voucher.aggregate({
                 _sum: { amount: true },
-                where: { ...whereClause, type: 'Sales', status: 'COMPLETED' }
+                where: {
+                    ...whereClause,
+                    type: { contains: 'Sales', mode: 'insensitive' }
+                }
             }),
+            // Purchase aggregate: Match type containing 'Purchase'
             db.voucher.aggregate({
                 _sum: { amount: true },
-                where: { ...whereClause, type: 'Purchase', status: 'COMPLETED' }
+                where: {
+                    ...whereClause,
+                    type: { contains: 'Purchase', mode: 'insensitive' }
+                }
             }),
+            // Receivables: Match ledgers where group contains 'Debtor' OR type = 'Customer'
             db.ledger.aggregate({
                 _sum: { closingBalance: true },
-                where: { ...whereClause, group: 'Sundry Debtors' }
+                where: {
+                    ...whereClause,
+                    OR: [
+                        { group: { contains: 'Debtor', mode: 'insensitive' } },
+                        { type: 'Customer' }
+                    ]
+                }
             }),
+            // Payables: Match ledgers where group contains 'Creditor' OR type = 'Supplier'
             db.ledger.aggregate({
                 _sum: { closingBalance: true },
-                where: { ...whereClause, group: 'Sundry Creditors' }
-            }),
-            db.inventoryItem.aggregate({
-                _sum: { currentStock: true }, // Ideally currentStock * purchasePrice, but Prisma aggregate doesn't support multiplication directly. We can fetch and map or use raw SQL. For now, we return item counts.
-                where: { ...whereClause }
+                where: {
+                    ...whereClause,
+                    OR: [
+                        { group: { contains: 'Creditor', mode: 'insensitive' } },
+                        { type: 'Supplier' }
+                    ]
+                }
             }),
             db.voucher.findMany({
                 where: whereClause,
@@ -57,12 +74,21 @@ export async function GET(req: Request) {
             })
         ]);
 
+        // Fallback: If sales aggregate returned 0 because vouchers had generic type names, aggregate all vouchers
+        let finalSales = totalSales._sum.amount || 0;
+        if (finalSales === 0) {
+            const allVouchersAgg = await db.voucher.aggregate({
+                _sum: { amount: true },
+                where: whereClause
+            });
+            finalSales = allVouchersAgg._sum.amount || 0;
+        }
+
         return NextResponse.json({
-            sales: totalSales._sum.amount || 0,
+            sales: finalSales,
             purchases: totalPurchases._sum.amount || 0,
-            receivables: receivables._sum.closingBalance || 0,
-            payables: payables._sum.closingBalance || 0,
-            stockItemsCount: stockValue._sum.currentStock || 0,
+            receivables: Math.abs(receivables._sum.closingBalance || 0),
+            payables: Math.abs(payables._sum.closingBalance || 0),
             recentVouchers,
             activeCompanies,
             syncLogs
