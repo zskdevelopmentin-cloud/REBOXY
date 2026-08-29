@@ -1,31 +1,48 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { 
   ArrowLeft, Calendar, Search, ChevronRight, ChevronLeft,
-  DollarSign, Share2, X, Package, Users, Layers, FileText
+  Share2, X, Package, Users, Layers, FileText, AlertCircle
 } from 'lucide-react';
 import { formatCurrency, formatDate } from '@/utils/formatters';
-
-type DatePreset = 'Today' | 'Yesterday' | 'This Week' | 'This Month' | 'Previous Month' | 'This Quarter' | 'Financial Year' | 'Custom';
-type GroupByOption = 'party' | 'item' | 'itemGroup' | 'voucher' | 'date' | 'month';
-type SortOption = 'highest' | 'lowest' | 'nameAsc' | 'nameDesc';
-
 import { useBiz } from '@/context/BizContext';
+
+type DatePreset = 'Today' | 'Yesterday' | 'This Week' | 'Previous Week' | 'This Month' | 'Previous Month' | 'This Quarter' | 'Financial Year' | 'Custom';
+
+type GroupByOption = 
+  | 'ledger' 
+  | 'party' 
+  | 'voucherType' 
+  | 'item' 
+  | 'itemGroup' 
+  | 'itemCategory' 
+  | 'costCenter' 
+  | 'costCategory' 
+  | 'month' 
+  | 'bills' 
+  | 'date' 
+  | 'salesperson';
+
+type SortOption = 'highest' | 'lowest' | 'nameAsc' | 'nameDesc';
 
 export default function SalesPage() {
   const { datePreset, startDate, endDate, setDateRange } = useBiz();
   const [showDatePicker, setShowDatePicker] = useState(false);
 
   const [mode, setMode] = useState<'net' | 'gross'>('net');
-  const [groupBy, setGroupBy] = useState<GroupByOption>('party');
+  const [groupBy, setGroupBy] = useState<GroupByOption>('ledger');
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState<SortOption>('highest');
 
   const [salesData, setSalesData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Pagination for large list rendering
+  const [page, setPage] = useState(1);
+  const pageSize = 30;
 
   // Drill-down State
   const [selectedLedger, setSelectedLedger] = useState<any>(null);
@@ -50,11 +67,10 @@ export default function SalesPage() {
     setIsLoading(true);
     setError(null);
     try {
-      const apiGroupBy = groupBy === 'party' ? 'ledger' : groupBy;
       const params = new URLSearchParams({
         startDate,
         endDate,
-        groupBy: apiGroupBy,
+        groupBy,
         search,
         sort
       });
@@ -62,6 +78,7 @@ export default function SalesPage() {
       if (!res.ok) throw new Error('Failed to fetch sales report');
       const data = await res.json();
       setSalesData(data);
+      setPage(1);
     } catch (err: any) {
       console.error(err);
       setError(err.message || 'Unable to load Sales data');
@@ -93,19 +110,40 @@ export default function SalesPage() {
 
   const summary = salesData?.summary || { grossSales: 0, creditNotes: 0, netSales: 0, voucherCount: 0 };
   const groupedData = salesData?.groupedData || [];
+  const isSupported = salesData?.isSupported !== false;
+
+  // Paginated List
+  const paginatedData = useMemo(() => {
+    return groupedData.slice(0, page * pageSize);
+  }, [groupedData, page]);
+
+  const groupByOptionsList: { id: GroupByOption; label: string }[] = [
+    { id: 'ledger', label: 'Ledger' },
+    { id: 'party', label: 'Party' },
+    { id: 'item', label: 'Stock Item' },
+    { id: 'itemGroup', label: 'Stock Group' },
+    { id: 'itemCategory', label: 'Stock Category' },
+    { id: 'voucherType', label: 'Voucher Type' },
+    { id: 'bills', label: 'Bills' },
+    { id: 'month', label: 'Month' },
+    { id: 'date', label: 'Date' },
+    { id: 'costCenter', label: 'Cost Center' },
+    { id: 'costCategory', label: 'Cost Category' },
+    { id: 'salesperson', label: 'Salesperson' }
+  ];
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 font-inter text-gray-900 dark:text-gray-100 pb-24 animate-in fade-in duration-300">
       
-      {/* Top Header */}
+      {/* Top Header Bar */}
       <header className="sticky top-0 z-30 bg-white/95 dark:bg-gray-900/95 backdrop-blur-md border-b border-gray-200 dark:border-gray-800 px-4 py-3 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-3">
           <Link href="/" className="p-2 -ml-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
             <ArrowLeft size={20} className="dark:text-white" />
           </Link>
           <div>
-            <h1 className="text-base font-black tracking-tight uppercase">SUPREME FOOTCARE</h1>
-            <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Tally Realtime Sales Analysis</p>
+            <h1 className="text-base font-black tracking-tight uppercase">SALES ANALYSIS</h1>
+            <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Tally Realtime Analytics</p>
           </div>
         </div>
         
@@ -116,13 +154,15 @@ export default function SalesPage() {
         </div>
       </header>
 
-      {/* Biz Analyst Primary Main Tabs: Items vs Party */}
+      {/* Main Grouping Switcher Tabs & Date Stepper */}
       <div className="p-4 bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 space-y-3">
+        
+        {/* Primary Quick Toggle: Items vs Party */}
         <div className="grid grid-cols-2 gap-2">
           <button
             onClick={() => setGroupBy('item')}
             className={`py-3 px-4 rounded-2xl flex items-center justify-center gap-2 font-black text-xs uppercase tracking-wider transition-all border ${
-              groupBy === 'item' || groupBy === 'itemGroup'
+              groupBy === 'item' || groupBy === 'itemGroup' || groupBy === 'itemCategory'
                 ? 'bg-primary text-white border-primary shadow-lg shadow-primary/25'
                 : 'bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:bg-gray-100'
             }`}
@@ -132,44 +172,39 @@ export default function SalesPage() {
           </button>
 
           <button
-            onClick={() => setGroupBy('party')}
+            onClick={() => setGroupBy('ledger')}
             className={`py-3 px-4 rounded-2xl flex items-center justify-center gap-2 font-black text-xs uppercase tracking-wider transition-all border ${
-              groupBy === 'party'
+              groupBy === 'ledger' || groupBy === 'party'
                 ? 'bg-primary text-white border-primary shadow-lg shadow-primary/25'
                 : 'bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:bg-gray-100'
             }`}
           >
             <Users size={18} />
-            <span>Party</span>
+            <span>Party / Ledger</span>
           </button>
         </div>
 
-        {/* Secondary Sub-Category Tabs */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pt-1 pb-1 no-scrollbar">
-          <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest pr-1">Filter By:</span>
-          {[
-            { id: 'party', label: 'All Parties' },
-            { id: 'item', label: 'All Items' },
-            { id: 'itemGroup', label: 'Item Groups' },
-            { id: 'voucher', label: 'Vouchers' },
-            { id: 'date', label: 'By Date' },
-            { id: 'month', label: 'By Month' }
-          ].map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setGroupBy(tab.id as GroupByOption)}
-              className={`px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider shrink-0 transition-all ${
-                groupBy === tab.id
-                  ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900 shadow-sm'
-                  : 'bg-gray-100 dark:bg-gray-800 text-gray-500 hover:bg-gray-200'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
+        {/* 12 Group By Selector Pills */}
+        <div className="space-y-1">
+          <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Group By Mode (12 Views):</span>
+          <div className="flex items-center gap-1.5 overflow-x-auto pt-1 pb-1 no-scrollbar">
+            {groupByOptionsList.map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setGroupBy(tab.id)}
+                className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider shrink-0 transition-all ${
+                  groupBy === tab.id
+                    ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900 shadow-sm'
+                    : 'bg-gray-100 dark:bg-gray-800 text-gray-500 hover:bg-gray-200'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
         </div>
 
-        {/* Date Selector Navigation Bar */}
+        {/* Date Stepper Navigation Bar */}
         <div className="flex items-center justify-between bg-gray-50 dark:bg-gray-800/60 p-2 rounded-2xl border border-gray-100 dark:border-gray-800">
           <button onClick={() => shiftDay(-1)} className="p-1.5 text-gray-500 hover:text-gray-900 dark:hover:text-white rounded-xl hover:bg-white dark:hover:bg-gray-700 transition-colors">
             <ChevronLeft size={18} />
@@ -193,11 +228,11 @@ export default function SalesPage() {
       {showDatePicker && (
         <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 p-4 space-y-3 animate-in slide-in-from-top duration-200">
           <div className="flex justify-between items-center">
-            <span className="text-xs font-black uppercase tracking-wider text-gray-500">Select Date Preset</span>
+            <span className="text-xs font-black uppercase tracking-wider text-gray-500">Select Date Range Preset</span>
             <button onClick={() => setShowDatePicker(false)} className="text-gray-400 hover:text-gray-600"><X size={16} /></button>
           </div>
           <div className="grid grid-cols-3 gap-2">
-            {(['Today', 'Yesterday', 'This Week', 'This Month', 'Previous Month', 'This Quarter', 'Financial Year'] as DatePreset[]).map(preset => (
+            {(['Today', 'Yesterday', 'This Week', 'Previous Week', 'This Month', 'Previous Month', 'This Quarter', 'Financial Year'] as DatePreset[]).map(preset => (
               <button
                 key={preset}
                 onClick={() => { handlePresetChange(preset); setShowDatePicker(false); }}
@@ -243,7 +278,7 @@ export default function SalesPage() {
                 {formatCurrency(mode === 'net' ? summary.netSales : summary.grossSales)}
               </h2>
               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mt-1">
-                Selected Group: <span className="text-primary uppercase font-black">{groupBy}</span>
+                Selected Mode: <span className="text-primary uppercase font-black">{groupBy}</span> • {summary.voucherCount} Vouchers
               </p>
             </div>
 
@@ -308,12 +343,20 @@ export default function SalesPage() {
             onChange={e => setSort(e.target.value as SortOption)}
             className="p-2.5 bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 text-xs font-bold text-gray-700 dark:text-gray-300 focus:outline-none cursor-pointer"
           >
-            <option value="highest">Highest Sales</option>
-            <option value="lowest">Lowest Sales</option>
+            <option value="highest">Highest Amount</option>
+            <option value="lowest">Lowest Amount</option>
             <option value="nameAsc">Name A-Z</option>
             <option value="nameDesc">Name Z-A</option>
           </select>
         </div>
+
+        {/* Limitation Notice for Unsupported Dimensions */}
+        {!isSupported && salesData?.message && (
+          <div className="p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/40 rounded-2xl flex items-center gap-3">
+            <AlertCircle size={20} className="text-amber-600 shrink-0" />
+            <p className="text-xs font-bold text-amber-800 dark:text-amber-300">{salesData.message}</p>
+          </div>
+        )}
 
         {/* Grouped Categorised List View */}
         {isLoading ? (
@@ -333,46 +376,60 @@ export default function SalesPage() {
             <p className="text-xs font-bold uppercase tracking-widest text-gray-400">No records found for the selected view.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5">
-            {groupedData.map((item: any) => (
-              <div
-                key={item.id}
-                onClick={() => {
-                  if (groupBy === 'voucher') {
-                    openVoucherDetail(item.id);
-                  } else {
-                    setSelectedLedger(item);
-                  }
-                }}
-                className="p-4 bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm flex items-center justify-between active:scale-[0.99] transition-all cursor-pointer group hover:border-primary/40"
-              >
-                <div className="flex items-center gap-3 max-w-[65%]">
-                  <div className="w-10 h-10 rounded-xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-500 font-black text-sm uppercase shrink-0 group-hover:bg-primary/10 group-hover:text-primary transition-colors">
-                    {item.name[0]}
-                  </div>
-                  <div className="truncate">
-                    <h4 className="text-sm font-black dark:text-white uppercase tracking-tight truncate">{item.name}</h4>
-                    <p className="text-[10px] text-gray-400 font-bold uppercase mt-0.5 tracking-wider">
-                      {item.voucherCount} Voucher{item.voucherCount > 1 ? 's' : ''} {item.quantity > 0 ? `• ${item.quantity} Qty` : ''}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="text-right flex items-center gap-2">
-                  <div>
-                    <p className="text-sm font-black text-gray-900 dark:text-white">
-                      {formatCurrency(mode === 'net' ? item.netSales : item.grossSales)}
-                    </p>
-                    {item.creditNotes > 0 && (
-                      <p className="text-[9px] text-orange-600 font-bold uppercase mt-0.5">
-                        Return: {formatCurrency(item.creditNotes)}
+          <div className="space-y-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5">
+              {paginatedData.map((item: any) => (
+                <div
+                  key={item.id}
+                  onClick={() => {
+                    if (groupBy === 'bills' || groupBy === 'voucher') {
+                      openVoucherDetail(item.id);
+                    } else {
+                      setSelectedLedger(item);
+                    }
+                  }}
+                  className="p-4 bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm flex items-center justify-between active:scale-[0.99] transition-all cursor-pointer group hover:border-primary/40"
+                >
+                  <div className="flex items-center gap-3 max-w-[65%]">
+                    <div className="w-10 h-10 rounded-xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-500 font-black text-sm uppercase shrink-0 group-hover:bg-primary/10 group-hover:text-primary transition-colors">
+                      {item.name[0]}
+                    </div>
+                    <div className="truncate">
+                      <h4 className="text-sm font-black dark:text-white uppercase tracking-tight truncate">{item.name}</h4>
+                      <p className="text-[10px] text-gray-400 font-bold uppercase mt-0.5 tracking-wider">
+                        {item.voucherCount} Voucher{item.voucherCount > 1 ? 's' : ''} {item.quantity > 0 ? `• ${item.quantity} Qty` : ''}
                       </p>
-                    )}
+                    </div>
                   </div>
-                  <ChevronRight size={16} className="text-gray-300 group-hover:text-primary transition-colors" />
+
+                  <div className="text-right flex items-center gap-2">
+                    <div>
+                      <p className="text-sm font-black text-gray-900 dark:text-white">
+                        {formatCurrency(mode === 'net' ? item.netSales : item.grossSales)}
+                      </p>
+                      {item.creditNotes > 0 && (
+                        <p className="text-[9px] text-orange-600 font-bold uppercase mt-0.5">
+                          Return: {formatCurrency(item.creditNotes)}
+                        </p>
+                      )}
+                    </div>
+                    <ChevronRight size={16} className="text-gray-300 group-hover:text-primary transition-colors" />
+                  </div>
                 </div>
+              ))}
+            </div>
+
+            {/* Pagination Load More Control */}
+            {paginatedData.length < groupedData.length && (
+              <div className="text-center pt-4">
+                <button
+                  onClick={() => setPage(p => p + 1)}
+                  className="px-6 py-2.5 bg-white dark:bg-gray-900 text-primary border border-primary/20 rounded-2xl text-xs font-black uppercase tracking-wider hover:bg-primary/10 transition-all shadow-sm"
+                >
+                  Load More ({groupedData.length - paginatedData.length} Remaining)
+                </button>
               </div>
-            ))}
+            )}
           </div>
         )}
 
@@ -389,7 +446,7 @@ export default function SalesPage() {
                 </button>
                 <div>
                   <h3 className="text-base font-black dark:text-white uppercase tracking-tight truncate">{selectedLedger.name}</h3>
-                  <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Sales Detail</p>
+                  <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Group Analytics Drill-Down</p>
                 </div>
               </div>
               <button onClick={() => setSelectedLedger(null)} className="text-gray-400 hover:text-gray-600">
@@ -417,7 +474,7 @@ export default function SalesPage() {
             <div className="space-y-2 pt-2">
               <h4 className="text-xs font-black uppercase tracking-wider text-gray-400">Transactions</h4>
               {salesData?.vouchers
-                ?.filter((v: any) => v.partyName === selectedLedger.name || v.partyId === selectedLedger.id)
+                ?.filter((v: any) => v.partyName === selectedLedger.name || v.partyId === selectedLedger.id || selectedLedger.name.includes(v.vNo))
                 .map((v: any) => (
                   <div
                     key={v.id}
@@ -461,6 +518,7 @@ export default function SalesPage() {
             ) : voucherDetail ? (
               <div className="space-y-4">
                 
+                {/* Header Metadata */}
                 <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-2xl space-y-2 text-xs">
                   <div className="flex justify-between">
                     <span className="text-gray-400 font-bold uppercase tracking-wider">Voucher No:</span>
@@ -480,6 +538,7 @@ export default function SalesPage() {
                   </div>
                 </div>
 
+                {/* Line Items Table */}
                 {voucherDetail.items && voucherDetail.items.length > 0 ? (
                   <div className="space-y-2">
                     <h4 className="text-[10px] font-black uppercase tracking-wider text-gray-400">Line Items</h4>
@@ -497,6 +556,7 @@ export default function SalesPage() {
                   </div>
                 ) : null}
 
+                {/* Total Invoice Amount */}
                 <div className="p-4 bg-primary text-white rounded-2xl flex justify-between items-center shadow-lg shadow-primary/20">
                   <span className="text-xs font-black uppercase tracking-widest">Total Invoice Amount</span>
                   <span className="text-xl font-black">{formatCurrency(voucherDetail.amount)}</span>

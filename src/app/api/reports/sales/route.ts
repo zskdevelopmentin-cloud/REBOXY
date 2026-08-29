@@ -28,6 +28,19 @@ export async function GET(req: Request) {
             if (firstCompany) activeCompanyId = firstCompany.id;
         }
 
+        // Single voucher detail fetch if voucherId is provided
+        if (voucherId) {
+            const voucherDetail = await db.voucher.findUnique({
+                where: { id: voucherId },
+                include: {
+                    party: true,
+                    ledger: true,
+                    items: { include: { item: true } }
+                }
+            });
+            return NextResponse.json({ voucher: voucherDetail });
+        }
+
         let whereClause: any = {
             companyId: activeCompanyId || undefined,
             OR: [
@@ -47,24 +60,12 @@ export async function GET(req: Request) {
             whereClause.partyId = ledgerId;
         }
 
-        // Single voucher detail fetch if voucherId is provided
-        if (voucherId) {
-            const voucherDetail = await db.voucher.findUnique({
-                where: { id: voucherId },
-                include: {
-                    party: true,
-                    ledger: true,
-                    items: { include: { item: true } }
-                }
-            });
-            return NextResponse.json({ voucher: voucherDetail });
-        }
-
-        // Fetch all vouchers for the company matching date range & type
+        // Fetch all matching vouchers
         const vouchers = await db.voucher.findMany({
             where: whereClause,
             include: {
                 party: true,
+                ledger: true,
                 items: { include: { item: true } }
             },
             orderBy: { date: 'desc' }
@@ -86,28 +87,61 @@ export async function GET(req: Request) {
 
         const netSales = grossSales - creditNotes;
 
+        // Unsupported Tally dimensions check
+        const unsupportedDimensions = ['costCenter', 'costCategory', 'salesperson'];
+        if (unsupportedDimensions.includes(groupBy)) {
+            return NextResponse.json({
+                summary: { grossSales, creditNotes, netSales, voucherCount },
+                groupedData: [],
+                isSupported: false,
+                message: `${groupBy.charAt(0).toUpperCase() + groupBy.slice(1)} tracking is not enabled in current Tally Prime export configuration.`
+            });
+        }
+
         // Multi-dimensional Group By Aggregation
         const groupMap = new Map<string, {
             id: string;
             name: string;
             type?: string;
+            vNo?: string;
+            date?: string;
+            partyName?: string;
             grossSales: number;
             creditNotes: number;
             netSales: number;
             quantity: number;
             voucherCount: number;
-            items?: any[];
         }>();
 
         vouchers.forEach(v => {
             const isReturn = v.type?.toLowerCase().includes('credit note') || v.type?.toLowerCase().includes('return');
 
-            if (groupBy === 'voucher') {
+            if (groupBy === 'voucherType') {
+                const key = v.type || 'Sales';
+                const existing = groupMap.get(key) || {
+                    id: key,
+                    name: key,
+                    type: key,
+                    grossSales: 0,
+                    creditNotes: 0,
+                    netSales: 0,
+                    quantity: 0,
+                    voucherCount: 0
+                };
+                if (isReturn) existing.creditNotes += v.amount;
+                else existing.grossSales += v.amount;
+                existing.netSales = existing.grossSales - existing.creditNotes;
+                existing.voucherCount++;
+                groupMap.set(key, existing);
+            } else if (groupBy === 'bills' || groupBy === 'voucher') {
                 const key = v.id;
                 const name = `${v.vNo} - ${v.party?.name || 'Cash'}`;
                 const existing = groupMap.get(key) || {
                     id: key,
                     name,
+                    vNo: v.vNo,
+                    date: v.date.toISOString(),
+                    partyName: v.party?.name || 'Cash',
                     type: v.type,
                     grossSales: 0,
                     creditNotes: 0,
@@ -115,19 +149,16 @@ export async function GET(req: Request) {
                     quantity: 0,
                     voucherCount: 1
                 };
-                if (isReturn) {
-                    existing.creditNotes += v.amount;
-                } else {
-                    existing.grossSales += v.amount;
-                }
+                if (isReturn) existing.creditNotes += v.amount;
+                else existing.grossSales += v.amount;
                 existing.netSales = existing.grossSales - existing.creditNotes;
                 groupMap.set(key, existing);
-            } else if (groupBy === 'item' || groupBy === 'itemGroup') {
+            } else if (groupBy === 'item' || groupBy === 'itemGroup' || groupBy === 'itemCategory') {
                 if (v.items && v.items.length > 0) {
                     v.items.forEach(vi => {
-                        const itemName = vi.item?.name || vi.description || 'Unknown Item';
-                        const itemCat = vi.item?.category || 'General Products';
-                        const key = groupBy === 'itemGroup' ? itemCat : itemName;
+                        const itemName = vi.item?.name || vi.description || 'General Item';
+                        const itemGrp = vi.item?.category || 'General Products';
+                        const key = groupBy === 'itemGroup' ? itemGrp : (groupBy === 'itemCategory' ? 'Standard Category' : itemName);
                         const existing = groupMap.get(key) || {
                             id: key,
                             name: key,
@@ -137,19 +168,15 @@ export async function GET(req: Request) {
                             quantity: 0,
                             voucherCount: 0
                         };
-                        if (isReturn) {
-                            existing.creditNotes += vi.amount;
-                        } else {
-                            existing.grossSales += vi.amount;
-                        }
+                        if (isReturn) existing.creditNotes += vi.amount;
+                        else existing.grossSales += vi.amount;
                         existing.quantity += vi.quantity;
                         existing.netSales = existing.grossSales - existing.creditNotes;
                         existing.voucherCount++;
                         groupMap.set(key, existing);
                     });
                 } else {
-                    // Fallback item group if line items not present
-                    const key = 'General Sales Items';
+                    const key = groupBy === 'itemGroup' ? 'General Group' : 'General Sales Items';
                     const existing = groupMap.get(key) || {
                         id: key,
                         name: key,
@@ -184,7 +211,7 @@ export async function GET(req: Request) {
             } else if (groupBy === 'month') {
                 const dateObj = new Date(v.date);
                 const monthKey = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}`;
-                const monthName = dateObj.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+                const monthName = dateObj.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }).toUpperCase();
                 const existing = groupMap.get(monthKey) || {
                     id: monthKey,
                     name: monthName,
@@ -224,7 +251,11 @@ export async function GET(req: Request) {
 
         // Apply Search Filter
         if (search) {
-            groupedData = groupedData.filter(g => g.name.toLowerCase().includes(search));
+            groupedData = groupedData.filter(g => 
+                g.name.toLowerCase().includes(search) || 
+                (g.vNo && g.vNo.toLowerCase().includes(search)) ||
+                (g.partyName && g.partyName.toLowerCase().includes(search))
+            );
         }
 
         // Apply Sorting
@@ -240,6 +271,7 @@ export async function GET(req: Request) {
         }
 
         return NextResponse.json({
+            isSupported: true,
             summary: {
                 grossSales,
                 creditNotes,
