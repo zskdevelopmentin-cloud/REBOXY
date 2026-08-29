@@ -215,14 +215,14 @@ export default function SalesPage() {
             <input 
               type="date" 
               value={startDate} 
-              onChange={e => { setStartDate(e.target.value); setDatePreset('Custom'); }}
+              onChange={e => setDateRange('Custom', e.target.value, endDate)}
               className="flex-1 p-2 bg-gray-50 dark:bg-gray-800 rounded-xl text-xs font-bold border border-gray-200 dark:border-gray-700" 
             />
             <span className="text-xs font-bold text-gray-400">to</span>
             <input 
               type="date" 
               value={endDate} 
-              onChange={e => { setEndDate(e.target.value); setDatePreset('Custom'); }}
+              onChange={e => setDateRange('Custom', startDate, e.target.value)}
               className="flex-1 p-2 bg-gray-50 dark:bg-gray-800 rounded-xl text-xs font-bold border border-gray-200 dark:border-gray-700" 
             />
           </div>
