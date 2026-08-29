@@ -25,8 +25,10 @@ export async function GET(req: Request) {
         }
 
         const [
-            salesAgg,
-            purchasesAgg,
+            grossSalesAgg,
+            creditNotesAgg,
+            grossPurchasesAgg,
+            debitNotesAgg,
             receiptsAgg,
             paymentsAgg,
             outstandingAgg,
@@ -35,29 +37,39 @@ export async function GET(req: Request) {
             activeCompanies,
             syncLogs
         ] = await Promise.all([
-            // 1. Sales & Credit Notes
+            // 1. Gross Sales Vouchers
             db.voucher.aggregate({
                 _sum: { amount: true },
                 where: {
                     ...voucherWhereClause,
-                    OR: [
-                        { type: { contains: 'Sales', mode: 'insensitive' } },
-                        { type: { contains: 'Credit Note', mode: 'insensitive' } }
-                    ]
+                    type: { contains: 'Sales', mode: 'insensitive' }
                 }
             }),
-            // 2. Purchase & Debit Notes
+            // 2. Credit Note Vouchers (Returns)
             db.voucher.aggregate({
                 _sum: { amount: true },
                 where: {
                     ...voucherWhereClause,
-                    OR: [
-                        { type: { contains: 'Purchase', mode: 'insensitive' } },
-                        { type: { contains: 'Debit Note', mode: 'insensitive' } }
-                    ]
+                    type: { contains: 'Credit Note', mode: 'insensitive' }
                 }
             }),
-            // 3. Receipt
+            // 3. Purchase Vouchers
+            db.voucher.aggregate({
+                _sum: { amount: true },
+                where: {
+                    ...voucherWhereClause,
+                    type: { contains: 'Purchase', mode: 'insensitive' }
+                }
+            }),
+            // 4. Debit Note Vouchers
+            db.voucher.aggregate({
+                _sum: { amount: true },
+                where: {
+                    ...voucherWhereClause,
+                    type: { contains: 'Debit Note', mode: 'insensitive' }
+                }
+            }),
+            // 5. Receipt
             db.voucher.aggregate({
                 _sum: { amount: true },
                 where: {
@@ -65,7 +77,7 @@ export async function GET(req: Request) {
                     type: { contains: 'Receipt', mode: 'insensitive' }
                 }
             }),
-            // 4. Payment
+            // 6. Payment
             db.voucher.aggregate({
                 _sum: { amount: true },
                 where: {
@@ -73,7 +85,7 @@ export async function GET(req: Request) {
                     type: { contains: 'Payment', mode: 'insensitive' }
                 }
             }),
-            // 5. Outstanding (Total Debtors Closing Balance)
+            // 7. Outstanding (Total Debtors Closing Balance)
             db.ledger.aggregate({
                 _sum: { closingBalance: true },
                 where: {
@@ -84,7 +96,7 @@ export async function GET(req: Request) {
                     ]
                 }
             }),
-            // 6. Cash / Bank Balance
+            // 8. Cash / Bank Balance
             db.ledger.aggregate({
                 _sum: { closingBalance: true },
                 where: {
@@ -112,17 +124,28 @@ export async function GET(req: Request) {
             })
         ]);
 
+        const grossSales = grossSalesAgg._sum.amount || 0;
+        const creditNotes = creditNotesAgg._sum.amount || 0;
+        const netSales = grossSales - creditNotes;
+
+        const grossPurchases = grossPurchasesAgg._sum.amount || 0;
+        const debitNotes = debitNotesAgg._sum.amount || 0;
+        const netPurchases = grossPurchases - debitNotes;
+
         return NextResponse.json({
             startDate,
             endDate,
-            sales: salesAgg._sum.amount || 0,
-            purchases: purchasesAgg._sum.amount || 0,
+            sales: netSales > 0 ? netSales : grossSales, // Net Sales formula from Tally Prime
+            grossSales,
+            creditNotes,
+            netSales,
+            purchases: netPurchases > 0 ? netPurchases : grossPurchases,
             receipts: receiptsAgg._sum.amount || 0,
             payments: paymentsAgg._sum.amount || 0,
             outstanding: Math.abs(outstandingAgg._sum.closingBalance || 0),
             cashBank: Math.abs(cashBankAgg._sum.closingBalance || 0),
             receivables: Math.abs(outstandingAgg._sum.closingBalance || 0),
-            payables: Math.abs(purchasesAgg._sum.amount || 0),
+            payables: Math.abs(grossPurchasesAgg._sum.amount || 0),
             recentVouchers,
             activeCompanies,
             syncLogs
