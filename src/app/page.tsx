@@ -10,7 +10,7 @@ import {
 import Login from './login/page';
 
 export default function DashboardPage() {
-  const { dashboardData, isAuthenticated, refreshDashboard } = useBiz();
+  const { dashboardData, isAuthenticated, refreshDashboard, datePreset, startDate, endDate } = useBiz();
 
   React.useEffect(() => {
     if (isAuthenticated && !dashboardData) {
@@ -33,6 +33,11 @@ export default function DashboardPage() {
   return (
     <div className="p-4 space-y-4 font-inter animate-in fade-in duration-500 pb-20">
       
+      {/* Active Date Banner */}
+      <div className="flex items-center justify-between px-1 text-[10px] font-black text-gray-400 uppercase tracking-widest">
+        <span>Showing Metrics For: <strong className="text-primary">{datePreset}</strong> ({formatDate(startDate)} to {formatDate(endDate)})</span>
+      </div>
+
       {/* Biz Analyst Metrics Cards - Responsive Grid Layout */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
 

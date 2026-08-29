@@ -3,6 +3,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { BizData } from '@/types';
 
+export type DatePreset = 'Today' | 'Yesterday' | 'This Week' | 'This Month' | 'Previous Month' | 'This Quarter' | 'Financial Year' | 'Custom';
+
 interface Toast {
   id: number;
   message: string;
@@ -20,11 +22,17 @@ interface BizContextType {
   logout: () => Promise<void>;
   isLoading: boolean;
   dashboardData: any;
-  refreshDashboard: () => Promise<void>;
+  refreshDashboard: (overrideStart?: string, overrideEnd?: string) => Promise<void>;
   data: BizData;
   syncData: () => Promise<void>;
   addVoucher: (voucher: any) => Promise<void>;
   migrateToCloud: () => Promise<void>;
+  
+  // Global Date Filter State
+  datePreset: DatePreset;
+  startDate: string;
+  endDate: string;
+  setDateRange: (preset: DatePreset, customStart?: string, customEnd?: string) => Promise<void>;
 }
 
 const BizContext = createContext<BizContextType | null>(null);
@@ -38,6 +46,11 @@ export const BizProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [fullReportData, setFullReportData] = useState<any>({ ledgers: [], vouchers: [], stock: [] });
 
+  // Global Date Filter State
+  const [datePreset, setDatePresetState] = useState<DatePreset>('Financial Year');
+  const [startDate, setStartDateState] = useState<string>('2026-04-01');
+  const [endDate, setEndDateState] = useState<string>('2026-12-31');
+
   useEffect(() => {
     const initAuth = async () => {
       try {
@@ -46,7 +59,7 @@ export const BizProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           const data = await res.json();
           setCurrentUser(data.user);
           setIsAuthenticated(true);
-          await refreshDashboard();
+          await refreshDashboard(startDate, endDate);
         }
       } catch (error) {
         console.error('Auth check failed', error);
@@ -57,11 +70,45 @@ export const BizProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     initAuth();
   }, []);
 
-  const refreshDashboard = async () => {
+  const setDateRange = async (preset: DatePreset, customStart?: string, customEnd?: string) => {
+    setDatePresetState(preset);
+    let s = startDate;
+    let e = endDate;
+
+    const today = new Date();
+    if (preset === 'Today') {
+      s = today.toISOString().split('T')[0];
+      e = s;
+    } else if (preset === 'Yesterday') {
+      const y = new Date(today);
+      y.setDate(y.getDate() - 1);
+      s = y.toISOString().split('T')[0];
+      e = s;
+    } else if (preset === 'This Month') {
+      const first = new Date(today.getFullYear(), today.getMonth(), 1);
+      s = first.toISOString().split('T')[0];
+      e = today.toISOString().split('T')[0];
+    } else if (preset === 'Financial Year') {
+      s = '2026-04-01';
+      e = '2027-03-31';
+    } else if (preset === 'Custom' && customStart && customEnd) {
+      s = customStart;
+      e = customEnd;
+    }
+
+    setStartDateState(s);
+    setEndDateState(e);
+    await refreshDashboard(s, e);
+  };
+
+  const refreshDashboard = async (overrideStart?: string, overrideEnd?: string) => {
+    const s = overrideStart || startDate;
+    const e = overrideEnd || endDate;
     try {
+      const params = new URLSearchParams({ startDate: s, endDate: e });
       const [dashRes, reportsRes] = await Promise.all([
-        fetch('/api/dashboard'),
-        fetch('/api/reports/all')
+        fetch(`/api/dashboard?${params.toString()}`),
+        fetch(`/api/reports/all?${params.toString()}`)
       ]);
 
       if (dashRes.ok) {
@@ -105,7 +152,7 @@ export const BizProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setCurrentUser(data.user);
     setIsAuthenticated(true);
     addToast(`Welcome back, ${data.user.name || data.user.email}`);
-    await refreshDashboard();
+    await refreshDashboard(startDate, endDate);
     return data.user;
   };
 
@@ -134,7 +181,7 @@ export const BizProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const syncData = async () => {
-    await refreshDashboard();
+    await refreshDashboard(startDate, endDate);
   };
   const addVoucher = async () => {};
   const migrateToCloud = async () => {};
@@ -154,7 +201,11 @@ export const BizProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     data: activeData,
     syncData,
     addVoucher,
-    migrateToCloud
+    migrateToCloud,
+    datePreset,
+    startDate,
+    endDate,
+    setDateRange
   };
 
   return <BizContext.Provider value={value}>{children}</BizContext.Provider>;

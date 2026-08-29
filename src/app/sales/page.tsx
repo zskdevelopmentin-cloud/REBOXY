@@ -12,11 +12,10 @@ type DatePreset = 'Today' | 'Yesterday' | 'This Week' | 'This Month' | 'Previous
 type GroupByOption = 'party' | 'item' | 'itemGroup' | 'voucher' | 'date' | 'month';
 type SortOption = 'highest' | 'lowest' | 'nameAsc' | 'nameDesc';
 
+import { useBiz } from '@/context/BizContext';
+
 export default function SalesPage() {
-  // State Management
-  const [datePreset, setDatePreset] = useState<DatePreset>('Financial Year');
-  const [startDate, setStartDate] = useState<string>('2026-04-01');
-  const [endDate, setEndDate] = useState<string>('2026-12-31');
+  const { datePreset, startDate, endDate, setDateRange } = useBiz();
   const [showDatePicker, setShowDatePicker] = useState(false);
 
   const [mode, setMode] = useState<'net' | 'gross'>('net');
@@ -34,42 +33,8 @@ export default function SalesPage() {
   const [voucherDetail, setVoucherDetail] = useState<any>(null);
   const [loadingVoucher, setLoadingVoucher] = useState(false);
 
-  // Date Presets Handler
   const handlePresetChange = (preset: DatePreset) => {
-    setDatePreset(preset);
-    const today = new Date();
-    let start = new Date();
-    let end = new Date();
-
-    if (preset === 'Today') {
-      start = today;
-      end = today;
-    } else if (preset === 'Yesterday') {
-      start = new Date(today.setDate(today.getDate() - 1));
-      end = start;
-    } else if (preset === 'This Week') {
-      const firstDay = today.getDate() - today.getDay();
-      start = new Date(today.setDate(firstDay));
-      end = new Date();
-    } else if (preset === 'This Month') {
-      start = new Date(today.getFullYear(), today.getMonth(), 1);
-      end = new Date();
-    } else if (preset === 'Previous Month') {
-      start = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-      end = new Date(today.getFullYear(), today.getMonth(), 0);
-    } else if (preset === 'This Quarter') {
-      const quarterMonth = Math.floor(today.getMonth() / 3) * 3;
-      start = new Date(today.getFullYear(), quarterMonth, 1);
-      end = new Date();
-    } else if (preset === 'Financial Year') {
-      start = new Date('2026-04-01');
-      end = new Date('2027-03-31');
-    }
-
-    if (preset !== 'Custom') {
-      setStartDate(start.toISOString().split('T')[0]);
-      setEndDate(end.toISOString().split('T')[0]);
-    }
+    setDateRange(preset);
   };
 
   const shiftDay = (days: number) => {
@@ -77,9 +42,7 @@ export default function SalesPage() {
     s.setDate(s.getDate() + days);
     const e = new Date(endDate);
     e.setDate(e.getDate() + days);
-    setStartDate(s.toISOString().split('T')[0]);
-    setEndDate(e.toISOString().split('T')[0]);
-    setDatePreset('Custom');
+    setDateRange('Custom', s.toISOString().split('T')[0], e.toISOString().split('T')[0]);
   };
 
   // Fetch Sales Data API

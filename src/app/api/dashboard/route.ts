@@ -6,11 +6,22 @@ import { db } from '@/lib/db';
 export async function GET(req: Request) {
     const companyId = req.headers.get('x-company-id');
     const role = req.headers.get('x-user-role');
+    const { searchParams } = new URL(req.url);
+    const startDate = searchParams.get('startDate');
+    const endDate = searchParams.get('endDate');
 
     try {
         let whereClause: any = {};
         if (role !== 'SUPER_ADMIN' && companyId) {
             whereClause = { companyId };
+        }
+
+        let voucherWhereClause: any = { ...whereClause };
+        if (startDate && endDate) {
+            voucherWhereClause.date = {
+                gte: new Date(startDate),
+                lte: new Date(endDate)
+            };
         }
 
         const [
@@ -28,7 +39,7 @@ export async function GET(req: Request) {
             db.voucher.aggregate({
                 _sum: { amount: true },
                 where: {
-                    ...whereClause,
+                    ...voucherWhereClause,
                     OR: [
                         { type: { contains: 'Sales', mode: 'insensitive' } },
                         { type: { contains: 'Credit Note', mode: 'insensitive' } }
@@ -39,7 +50,7 @@ export async function GET(req: Request) {
             db.voucher.aggregate({
                 _sum: { amount: true },
                 where: {
-                    ...whereClause,
+                    ...voucherWhereClause,
                     OR: [
                         { type: { contains: 'Purchase', mode: 'insensitive' } },
                         { type: { contains: 'Debit Note', mode: 'insensitive' } }
@@ -50,7 +61,7 @@ export async function GET(req: Request) {
             db.voucher.aggregate({
                 _sum: { amount: true },
                 where: {
-                    ...whereClause,
+                    ...voucherWhereClause,
                     type: { contains: 'Receipt', mode: 'insensitive' }
                 }
             }),
@@ -58,7 +69,7 @@ export async function GET(req: Request) {
             db.voucher.aggregate({
                 _sum: { amount: true },
                 where: {
-                    ...whereClause,
+                    ...voucherWhereClause,
                     type: { contains: 'Payment', mode: 'insensitive' }
                 }
             }),
@@ -88,7 +99,7 @@ export async function GET(req: Request) {
             }),
             // Recent Transactions
             db.voucher.findMany({
-                where: whereClause,
+                where: voucherWhereClause,
                 orderBy: { date: 'desc' },
                 take: 15,
                 include: { party: true }
@@ -102,6 +113,8 @@ export async function GET(req: Request) {
         ]);
 
         return NextResponse.json({
+            startDate,
+            endDate,
             sales: salesAgg._sum.amount || 0,
             purchases: purchasesAgg._sum.amount || 0,
             receipts: receiptsAgg._sum.amount || 0,
