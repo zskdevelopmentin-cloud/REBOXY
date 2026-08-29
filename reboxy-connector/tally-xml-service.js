@@ -4,7 +4,6 @@ const { XMLParser } = require('fast-xml-parser');
 
 const TALLY_URL = process.env.TALLY_URL || 'http://192.168.1.33:9000';
 
-
 const xmlParser = new XMLParser({
     ignoreAttributes: false,
     attributeNamePrefix: '@_'
@@ -22,12 +21,22 @@ function parseTallyDate(dateStr) {
     return new Date().toISOString();
 }
 
+function getFormattedDate(d = new Date()) {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}${month}${day}`;
+}
+
 async function fetchTallyData() {
     console.log(`[Tally Service] Connecting to Tally XML at ${TALLY_URL}...`);
 
+    const fromDate = '20260401';
+    const toDate = getFormattedDate();
+
     try {
-        // 1. Fetch Day Book (Vouchers)
-        const vchXmlReq = `<ENVELOPE><HEADER><TALLYREQUEST>Export Data</TALLYREQUEST></HEADER><BODY><EXPORTDATA><REQUESTDESC><REPORTNAME>Day Book</REPORTNAME><STATICVARIABLES><SVEXPORTFORMAT>$$SysName:XML</SVEXPORTFORMAT></STATICVARIABLES></REQUESTDESC></EXPORTDATA></BODY></ENVELOPE>`;
+        // 1. Fetch Day Book (Vouchers for the entire date range up to today)
+        const vchXmlReq = `<ENVELOPE><HEADER><TALLYREQUEST>Export Data</TALLYREQUEST></HEADER><BODY><EXPORTDATA><REQUESTDESC><REPORTNAME>Day Book</REPORTNAME><STATICVARIABLES><SVEXPORTFORMAT>$$SysName:XML</SVEXPORTFORMAT><SVFROMDATE>${fromDate}</SVFROMDATE><SVTODATE>${toDate}</SVTODATE></STATICVARIABLES></REQUESTDESC></EXPORTDATA></BODY></ENVELOPE>`;
         
         const vchRes = await axios.post(TALLY_URL, vchXmlReq, {
             headers: { 'Content-Type': 'text/xml' },
@@ -61,9 +70,9 @@ async function fetchTallyData() {
                 vouchers.push({
                     tallyId: v.GUID || v['@_REMOTEID'] || String(vNo),
                     vNo: String(vNo),
-                    type: vType,
+                    type: String(vType),
                     date: parseTallyDate(rawDate),
-                    partyName: partyName,
+                    partyName: String(partyName),
                     amount: amount
                 });
             }
@@ -101,7 +110,7 @@ async function fetchTallyData() {
             }
         });
 
-        console.log(`[Tally Service] Successfully extracted ${vouchers.length} Vouchers and ${ledgers.length} Ledgers for "${companyName}".`);
+        console.log(`[Tally Service] Successfully extracted ${vouchers.length} Vouchers (From ${fromDate} to ${toDate}) and ${ledgers.length} Ledgers for "${companyName}".`);
 
         return {
             companyName,

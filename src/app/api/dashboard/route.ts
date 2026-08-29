@@ -14,31 +14,55 @@ export async function GET(req: Request) {
         }
 
         const [
-            totalSales,
-            totalPurchases,
-            receivables,
-            payables,
+            salesAgg,
+            purchasesAgg,
+            receiptsAgg,
+            paymentsAgg,
+            outstandingAgg,
+            cashBankAgg,
             recentVouchers,
             activeCompanies,
             syncLogs
         ] = await Promise.all([
-            // Sales aggregate: Match type containing 'Sales' or any positive voucher
+            // 1. Sales & Credit Notes
             db.voucher.aggregate({
                 _sum: { amount: true },
                 where: {
                     ...whereClause,
-                    type: { contains: 'Sales', mode: 'insensitive' }
+                    OR: [
+                        { type: { contains: 'Sales', mode: 'insensitive' } },
+                        { type: { contains: 'Credit Note', mode: 'insensitive' } }
+                    ]
                 }
             }),
-            // Purchase aggregate: Match type containing 'Purchase'
+            // 2. Purchase & Debit Notes
             db.voucher.aggregate({
                 _sum: { amount: true },
                 where: {
                     ...whereClause,
-                    type: { contains: 'Purchase', mode: 'insensitive' }
+                    OR: [
+                        { type: { contains: 'Purchase', mode: 'insensitive' } },
+                        { type: { contains: 'Debit Note', mode: 'insensitive' } }
+                    ]
                 }
             }),
-            // Receivables: Match ledgers where group contains 'Debtor' OR type = 'Customer'
+            // 3. Receipt
+            db.voucher.aggregate({
+                _sum: { amount: true },
+                where: {
+                    ...whereClause,
+                    type: { contains: 'Receipt', mode: 'insensitive' }
+                }
+            }),
+            // 4. Payment
+            db.voucher.aggregate({
+                _sum: { amount: true },
+                where: {
+                    ...whereClause,
+                    type: { contains: 'Payment', mode: 'insensitive' }
+                }
+            }),
+            // 5. Outstanding (Total Debtors Closing Balance)
             db.ledger.aggregate({
                 _sum: { closingBalance: true },
                 where: {
@@ -49,21 +73,24 @@ export async function GET(req: Request) {
                     ]
                 }
             }),
-            // Payables: Match ledgers where group contains 'Creditor' OR type = 'Supplier'
+            // 6. Cash / Bank Balance
             db.ledger.aggregate({
                 _sum: { closingBalance: true },
                 where: {
                     ...whereClause,
                     OR: [
-                        { group: { contains: 'Creditor', mode: 'insensitive' } },
-                        { type: 'Supplier' }
+                        { group: { contains: 'Bank', mode: 'insensitive' } },
+                        { group: { contains: 'Cash', mode: 'insensitive' } },
+                        { type: 'Bank' },
+                        { type: 'Cash' }
                     ]
                 }
             }),
+            // Recent Transactions
             db.voucher.findMany({
                 where: whereClause,
                 orderBy: { date: 'desc' },
-                take: 10,
+                take: 15,
                 include: { party: true }
             }),
             db.company.count(),
@@ -74,21 +101,15 @@ export async function GET(req: Request) {
             })
         ]);
 
-        // Fallback: If sales aggregate returned 0 because vouchers had generic type names, aggregate all vouchers
-        let finalSales = totalSales._sum.amount || 0;
-        if (finalSales === 0) {
-            const allVouchersAgg = await db.voucher.aggregate({
-                _sum: { amount: true },
-                where: whereClause
-            });
-            finalSales = allVouchersAgg._sum.amount || 0;
-        }
-
         return NextResponse.json({
-            sales: finalSales,
-            purchases: totalPurchases._sum.amount || 0,
-            receivables: Math.abs(receivables._sum.closingBalance || 0),
-            payables: Math.abs(payables._sum.closingBalance || 0),
+            sales: salesAgg._sum.amount || 0,
+            purchases: purchasesAgg._sum.amount || 0,
+            receipts: receiptsAgg._sum.amount || 0,
+            payments: paymentsAgg._sum.amount || 0,
+            outstanding: Math.abs(outstandingAgg._sum.closingBalance || 0),
+            cashBank: Math.abs(cashBankAgg._sum.closingBalance || 0),
+            receivables: Math.abs(outstandingAgg._sum.closingBalance || 0),
+            payables: Math.abs(purchasesAgg._sum.amount || 0),
             recentVouchers,
             activeCompanies,
             syncLogs
