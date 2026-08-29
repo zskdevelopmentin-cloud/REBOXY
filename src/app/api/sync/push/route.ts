@@ -21,21 +21,20 @@ export async function POST(req: Request) {
 
         // Verify company exists or auto-create
         let companyName = data.companyName || companyId;
-        let company = await db.company.findUnique({ where: { id: companyId } });
-        if (!company) {
-            const firstCompany = await db.company.findFirst();
-            if (firstCompany) {
-                company = firstCompany;
-            } else {
-                company = await db.company.create({
-                    data: {
-                        id: companyId,
-                        name: companyName,
-                        tallyConnected: true
-                    }
-                });
+        let company = await db.company.upsert({
+            where: { id: companyId },
+            update: {
+                name: companyName,
+                tallyConnected: true,
+                lastSyncTime: new Date()
+            },
+            create: {
+                id: companyId,
+                name: companyName,
+                tallyConnected: true,
+                lastSyncTime: new Date()
             }
-        }
+        });
         const activeCompanyId = company.id;
 
         // Create a SyncLog entry

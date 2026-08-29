@@ -21,7 +21,6 @@ interface BizContextType {
   isLoading: boolean;
   dashboardData: any;
   refreshDashboard: () => Promise<void>;
-  // Legacy properties to prevent build errors on older pages
   data: BizData;
   syncData: () => Promise<void>;
   addVoucher: (voucher: any) => Promise<void>;
@@ -37,6 +36,7 @@ export const BizProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [dashboardData, setDashboardData] = useState<any>(null);
+  const [fullReportData, setFullReportData] = useState<any>({ ledgers: [], vouchers: [], stock: [] });
 
   useEffect(() => {
     const initAuth = async () => {
@@ -59,11 +59,20 @@ export const BizProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const refreshDashboard = async () => {
     try {
-      const res = await fetch('/api/dashboard');
-      if (res.ok) {
-        setDashboardData(await res.json());
+      const [dashRes, reportsRes] = await Promise.all([
+        fetch('/api/dashboard'),
+        fetch('/api/reports/all')
+      ]);
+
+      if (dashRes.ok) {
+        setDashboardData(await dashRes.json());
       } else {
         setDashboardData({ sales: 0, purchases: 0, receivables: 0, payables: 0, recentVouchers: [] });
+      }
+
+      if (reportsRes.ok) {
+        const reportsData = await reportsRes.json();
+        setFullReportData(reportsData);
       }
     } catch (error) {
       console.error('Failed to refresh dashboard', error);
@@ -105,17 +114,17 @@ export const BizProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setIsAuthenticated(false);
     setCurrentUser(null);
     setDashboardData(null);
+    setFullReportData({ ledgers: [], vouchers: [], stock: [] });
     addToast('Logged out successfully');
   };
 
-  // Legacy dummy data to prevent build/runtime errors on unmigrated pages
-  const fallbackData = {
-    vouchers: dashboardData?.recentVouchers || [],
-    ledgers: [],
-    stock: [],
+  const activeData: BizData = {
+    vouchers: fullReportData.vouchers?.length ? fullReportData.vouchers : (dashboardData?.recentVouchers || []),
+    ledgers: fullReportData.ledgers || [],
+    stock: fullReportData.stock || [],
     users: [],
     settings: {
-      company: { name: 'REBOXY', gstin: '', address: '' },
+      company: fullReportData.company || { name: 'SUPREME FOOTCARE', gstin: '', address: '' },
       darkMode: false,
       currency: 'INR',
       dateFormat: 'DD/MM/YYYY',
@@ -124,7 +133,9 @@ export const BizProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     auth: { username: '', password: '' }
   };
 
-  const syncData = async () => {};
+  const syncData = async () => {
+    await refreshDashboard();
+  };
   const addVoucher = async () => {};
   const migrateToCloud = async () => {};
 
@@ -140,7 +151,7 @@ export const BizProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     isLoading,
     dashboardData,
     refreshDashboard,
-    data: fallbackData,
+    data: activeData,
     syncData,
     addVoucher,
     migrateToCloud
