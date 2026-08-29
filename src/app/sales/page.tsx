@@ -1,22 +1,18 @@
 'use client';
 
-import React, { useState, useEffect, useTransition } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { 
-  ArrowLeft, Calendar, Search, Filter, ArrowUpDown, ChevronRight, 
-  DollarSign, RotateCcw, FileText, CheckCircle2, Share2, Download, X, Layers
+  ArrowLeft, Calendar, Search, ChevronRight, ChevronLeft,
+  DollarSign, Share2, X, Package, Users, Layers, FileText
 } from 'lucide-react';
 import { formatCurrency, formatDate } from '@/utils/formatters';
 
 type DatePreset = 'Today' | 'Yesterday' | 'This Week' | 'This Month' | 'Previous Month' | 'This Quarter' | 'Financial Year' | 'Custom';
-type GroupByOption = 'ledger' | 'party' | 'item' | 'itemGroup' | 'voucher' | 'date' | 'month';
+type GroupByOption = 'party' | 'item' | 'itemGroup' | 'voucher' | 'date' | 'month';
 type SortOption = 'highest' | 'lowest' | 'nameAsc' | 'nameDesc';
 
 export default function SalesPage() {
-  const router = useRouter();
-  const [isPending, startTransition] = useTransition();
-
   // State Management
   const [datePreset, setDatePreset] = useState<DatePreset>('Financial Year');
   const [startDate, setStartDate] = useState<string>('2026-04-01');
@@ -24,7 +20,7 @@ export default function SalesPage() {
   const [showDatePicker, setShowDatePicker] = useState(false);
 
   const [mode, setMode] = useState<'net' | 'gross'>('net');
-  const [groupBy, setGroupBy] = useState<GroupByOption>('ledger');
+  const [groupBy, setGroupBy] = useState<GroupByOption>('party');
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState<SortOption>('highest');
 
@@ -76,15 +72,26 @@ export default function SalesPage() {
     }
   };
 
+  const shiftDay = (days: number) => {
+    const s = new Date(startDate);
+    s.setDate(s.getDate() + days);
+    const e = new Date(endDate);
+    e.setDate(e.getDate() + days);
+    setStartDate(s.toISOString().split('T')[0]);
+    setEndDate(e.toISOString().split('T')[0]);
+    setDatePreset('Custom');
+  };
+
   // Fetch Sales Data API
   const fetchSalesData = async () => {
     setIsLoading(true);
     setError(null);
     try {
+      const apiGroupBy = groupBy === 'party' ? 'ledger' : groupBy;
       const params = new URLSearchParams({
         startDate,
         endDate,
-        groupBy,
+        groupBy: apiGroupBy,
         search,
         sort
       });
@@ -127,37 +134,103 @@ export default function SalesPage() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 font-inter text-gray-900 dark:text-gray-100 pb-24 animate-in fade-in duration-300">
       
-      {/* Sales Header */}
-      <header className="sticky top-0 z-30 bg-white/90 dark:bg-gray-900/90 backdrop-blur-md border-b border-gray-200 dark:border-gray-800 px-4 py-3.5 flex items-center justify-between shadow-sm">
+      {/* Top Header */}
+      <header className="sticky top-0 z-30 bg-white/95 dark:bg-gray-900/95 backdrop-blur-md border-b border-gray-200 dark:border-gray-800 px-4 py-3 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-3">
           <Link href="/" className="p-2 -ml-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
             <ArrowLeft size={20} className="dark:text-white" />
           </Link>
           <div>
-            <h1 className="text-lg font-black tracking-tight uppercase">Sales Analysis</h1>
-            <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Tally Realtime Analytics</p>
+            <h1 className="text-base font-black tracking-tight uppercase">SUPREME FOOTCARE</h1>
+            <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Tally Realtime Sales Analysis</p>
           </div>
         </div>
         
         <div className="flex items-center gap-2">
-          <button 
-            onClick={() => setShowDatePicker(!showDatePicker)}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 text-primary rounded-xl text-xs font-black uppercase tracking-wider hover:bg-primary/20 transition-all"
-          >
-            <Calendar size={14} />
-            <span>{datePreset}</span>
-          </button>
           <button className="p-2 text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white">
             <Share2 size={18} />
           </button>
         </div>
       </header>
 
-      {/* Date Range Selector Drawer */}
+      {/* Biz Analyst Primary Main Tabs: Items vs Party */}
+      <div className="p-4 bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 space-y-3">
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            onClick={() => setGroupBy('item')}
+            className={`py-3 px-4 rounded-2xl flex items-center justify-center gap-2 font-black text-xs uppercase tracking-wider transition-all border ${
+              groupBy === 'item' || groupBy === 'itemGroup'
+                ? 'bg-primary text-white border-primary shadow-lg shadow-primary/25'
+                : 'bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:bg-gray-100'
+            }`}
+          >
+            <Package size={18} />
+            <span>Items</span>
+          </button>
+
+          <button
+            onClick={() => setGroupBy('party')}
+            className={`py-3 px-4 rounded-2xl flex items-center justify-center gap-2 font-black text-xs uppercase tracking-wider transition-all border ${
+              groupBy === 'party'
+                ? 'bg-primary text-white border-primary shadow-lg shadow-primary/25'
+                : 'bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:bg-gray-100'
+            }`}
+          >
+            <Users size={18} />
+            <span>Party</span>
+          </button>
+        </div>
+
+        {/* Secondary Sub-Category Tabs */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pt-1 pb-1 no-scrollbar">
+          <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest pr-1">Filter By:</span>
+          {[
+            { id: 'party', label: 'All Parties' },
+            { id: 'item', label: 'All Items' },
+            { id: 'itemGroup', label: 'Item Groups' },
+            { id: 'voucher', label: 'Vouchers' },
+            { id: 'date', label: 'By Date' },
+            { id: 'month', label: 'By Month' }
+          ].map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setGroupBy(tab.id as GroupByOption)}
+              className={`px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider shrink-0 transition-all ${
+                groupBy === tab.id
+                  ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900 shadow-sm'
+                  : 'bg-gray-100 dark:bg-gray-800 text-gray-500 hover:bg-gray-200'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Date Selector Navigation Bar */}
+        <div className="flex items-center justify-between bg-gray-50 dark:bg-gray-800/60 p-2 rounded-2xl border border-gray-100 dark:border-gray-800">
+          <button onClick={() => shiftDay(-1)} className="p-1.5 text-gray-500 hover:text-gray-900 dark:hover:text-white rounded-xl hover:bg-white dark:hover:bg-gray-700 transition-colors">
+            <ChevronLeft size={18} />
+          </button>
+
+          <button 
+            onClick={() => setShowDatePicker(!showDatePicker)}
+            className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-gray-700 dark:text-gray-200 hover:text-primary transition-colors"
+          >
+            <Calendar size={14} className="text-primary" />
+            <span>{formatDate(startDate)} {startDate !== endDate ? `to ${formatDate(endDate)}` : ''} ({datePreset})</span>
+          </button>
+
+          <button onClick={() => shiftDay(1)} className="p-1.5 text-gray-500 hover:text-gray-900 dark:hover:text-white rounded-xl hover:bg-white dark:hover:bg-gray-700 transition-colors">
+            <ChevronRight size={18} />
+          </button>
+        </div>
+      </div>
+
+      {/* Date Range Selector Drawer Modal */}
       {showDatePicker && (
         <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 p-4 space-y-3 animate-in slide-in-from-top duration-200">
           <div className="flex justify-between items-center">
-            <span className="text-xs font-black uppercase tracking-wider text-gray-500">Select Date Range</span>
+            <span className="text-xs font-black uppercase tracking-wider text-gray-500">Select Date Preset</span>
             <button onClick={() => setShowDatePicker(false)} className="text-gray-400 hover:text-gray-600"><X size={16} /></button>
           </div>
           <div className="grid grid-cols-3 gap-2">
@@ -207,7 +280,7 @@ export default function SalesPage() {
                 {formatCurrency(mode === 'net' ? summary.netSales : summary.grossSales)}
               </h2>
               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mt-1">
-                Period: <span className="text-gray-700 dark:text-gray-300">{formatDate(startDate)} to {formatDate(endDate)}</span>
+                Selected Group: <span className="text-primary uppercase font-black">{groupBy}</span>
               </p>
             </div>
 
@@ -249,68 +322,37 @@ export default function SalesPage() {
           </div>
         </div>
 
-        {/* Controls Bar: Group By, Search, Sort */}
-        <div className="space-y-3">
-          
-          <div className="flex gap-2 items-center">
-            {/* Search Input */}
-            <div className="relative flex-1">
-              <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search party, item, voucher..."
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 text-xs font-bold focus:ring-2 focus:ring-primary focus:outline-none"
-              />
-              {search && (
-                <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
-                  <X size={14} />
-                </button>
-              )}
-            </div>
-
-            {/* Sort Selector */}
-            <select
-              value={sort}
-              onChange={e => setSort(e.target.value as SortOption)}
-              className="p-2.5 bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 text-xs font-bold text-gray-700 dark:text-gray-300 focus:outline-none cursor-pointer"
-            >
-              <option value="highest">Highest Sales</option>
-              <option value="lowest">Lowest Sales</option>
-              <option value="nameAsc">Name A-Z</option>
-              <option value="nameDesc">Name Z-A</option>
-            </select>
-          </div>
-
-          {/* Group By Selector Tabs */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
-            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest pr-1">Group By:</span>
-            {([
-              { id: 'ledger', label: 'Ledger' },
-              { id: 'item', label: 'Item' },
-              { id: 'itemGroup', label: 'Item Group' },
-              { id: 'voucher', label: 'Voucher' },
-              { id: 'date', label: 'Date' },
-              { id: 'month', label: 'Month' }
-            ] as { id: GroupByOption, label: string }[]).map(tab => (
-              <button
-                key={tab.id}
-                onClick={() => setGroupBy(tab.id)}
-                className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider shrink-0 transition-all ${
-                  groupBy === tab.id
-                    ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900 shadow-sm'
-                    : 'bg-white dark:bg-gray-900 text-gray-500 border border-gray-200 dark:border-gray-800 hover:bg-gray-50'
-                }`}
-              >
-                {tab.label}
+        {/* Controls Bar: Search & Sort */}
+        <div className="flex gap-2 items-center">
+          <div className="relative flex-1">
+            <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              placeholder={`Search ${groupBy}...`}
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 text-xs font-bold focus:ring-2 focus:ring-primary focus:outline-none"
+            />
+            {search && (
+              <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                <X size={14} />
               </button>
-            ))}
+            )}
           </div>
 
+          <select
+            value={sort}
+            onChange={e => setSort(e.target.value as SortOption)}
+            className="p-2.5 bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 text-xs font-bold text-gray-700 dark:text-gray-300 focus:outline-none cursor-pointer"
+          >
+            <option value="highest">Highest Sales</option>
+            <option value="lowest">Lowest Sales</option>
+            <option value="nameAsc">Name A-Z</option>
+            <option value="nameDesc">Name Z-A</option>
+          </select>
         </div>
 
-        {/* Grouped Sales List */}
+        {/* Grouped Categorised List View */}
         {isLoading ? (
           <div className="text-center py-16 space-y-3">
             <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin mx-auto"></div>
@@ -325,7 +367,7 @@ export default function SalesPage() {
           </div>
         ) : groupedData.length === 0 ? (
           <div className="text-center py-16 bg-white dark:bg-gray-900 rounded-3xl border border-dashed border-gray-200 dark:border-gray-800 p-6 opacity-60">
-            <p className="text-xs font-bold uppercase tracking-widest text-gray-400">No sales found for the selected period.</p>
+            <p className="text-xs font-bold uppercase tracking-widest text-gray-400">No records found for the selected view.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5">
@@ -384,7 +426,7 @@ export default function SalesPage() {
                 </button>
                 <div>
                   <h3 className="text-base font-black dark:text-white uppercase tracking-tight truncate">{selectedLedger.name}</h3>
-                  <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Party Sales Detail</p>
+                  <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Sales Detail</p>
                 </div>
               </div>
               <button onClick={() => setSelectedLedger(null)} className="text-gray-400 hover:text-gray-600">
@@ -392,7 +434,7 @@ export default function SalesPage() {
               </button>
             </header>
 
-            {/* Party Summary Card */}
+            {/* Category Summary Card */}
             <div className="p-4 bg-primary/5 rounded-2xl border border-primary/10 space-y-2">
               <div className="flex justify-between text-xs font-bold text-gray-500 uppercase tracking-wider">
                 <span>Gross Sales</span>
@@ -408,7 +450,7 @@ export default function SalesPage() {
               </div>
             </div>
 
-            {/* Related Vouchers List */}
+            {/* Related Transactions List */}
             <div className="space-y-2 pt-2">
               <h4 className="text-xs font-black uppercase tracking-wider text-gray-400">Transactions</h4>
               {salesData?.vouchers
@@ -456,7 +498,6 @@ export default function SalesPage() {
             ) : voucherDetail ? (
               <div className="space-y-4">
                 
-                {/* Header Information */}
                 <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-2xl space-y-2 text-xs">
                   <div className="flex justify-between">
                     <span className="text-gray-400 font-bold uppercase tracking-wider">Voucher No:</span>
@@ -476,7 +517,6 @@ export default function SalesPage() {
                   </div>
                 </div>
 
-                {/* Line Items Table */}
                 {voucherDetail.items && voucherDetail.items.length > 0 ? (
                   <div className="space-y-2">
                     <h4 className="text-[10px] font-black uppercase tracking-wider text-gray-400">Line Items</h4>
@@ -494,7 +534,6 @@ export default function SalesPage() {
                   </div>
                 ) : null}
 
-                {/* Total Section */}
                 <div className="p-4 bg-primary text-white rounded-2xl flex justify-between items-center shadow-lg shadow-primary/20">
                   <span className="text-xs font-black uppercase tracking-widest">Total Invoice Amount</span>
                   <span className="text-xl font-black">{formatCurrency(voucherDetail.amount)}</span>
