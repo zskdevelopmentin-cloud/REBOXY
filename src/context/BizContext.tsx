@@ -46,10 +46,10 @@ export const BizProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [fullReportData, setFullReportData] = useState<any>({ ledgers: [], vouchers: [], stock: [] });
 
-  // Global Date Filter State
-  const [datePreset, setDatePresetState] = useState<DatePreset>('Financial Year');
-  const [startDate, setStartDateState] = useState<string>('2026-04-01');
-  const [endDate, setEndDateState] = useState<string>('2026-12-31');
+  // Global Date Filter State - Defaults to Today matching Biz Analyst mobile UI
+  const [datePreset, setDatePresetState] = useState<DatePreset>('Today');
+  const [startDate, setStartDateState] = useState<string>('2026-08-29');
+  const [endDate, setEndDateState] = useState<string>('2026-08-29');
 
   useEffect(() => {
     const initAuth = async () => {
@@ -59,7 +59,7 @@ export const BizProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           const data = await res.json();
           setCurrentUser(data.user);
           setIsAuthenticated(true);
-          await refreshDashboard(startDate, endDate);
+          await refreshDashboard('2026-08-29', '2026-08-29');
         }
       } catch (error) {
         console.error('Auth check failed', error);
@@ -72,12 +72,12 @@ export const BizProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const setDateRange = async (preset: DatePreset, customStart?: string, customEnd?: string) => {
     setDatePresetState(preset);
-    let s = startDate;
-    let e = endDate;
+    let s = '2026-08-29';
+    let e = '2026-08-29';
 
-    const today = new Date();
+    const today = new Date('2026-08-29');
     if (preset === 'Today') {
-      s = today.toISOString().split('T')[0];
+      s = '2026-08-29';
       e = s;
     } else if (preset === 'Yesterday') {
       const y = new Date(today);
