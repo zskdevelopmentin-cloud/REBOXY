@@ -6,7 +6,8 @@ const { fetchTallyData, getFormattedDate } = require('./tally-xml-service');
 
 const SYNC_INTERVAL_MS = parseInt(process.env.SYNC_INTERVAL_MS || '60000', 10);
 const COMPANY_ID = process.env.COMPANY_ID || 'SUPREME-FOOTCARE';
-const START_YEAR = parseInt(process.env.START_YEAR || '2020', 10);
+const START_YEAR = parseInt(process.env.START_YEAR || '2026', 10);
+const START_DATE = process.env.START_DATE || '20260401';
 const STATE_FILE = path.join(__dirname, 'sync-state.json');
 
 function loadLocalState() {
@@ -44,7 +45,7 @@ function generateYearChunks(startYear) {
     const currentYear = new Date().getFullYear();
     const chunks = [];
     for (let yr = startYear; yr <= currentYear; yr++) {
-        const fromDate = `${yr}0101`;
+        const fromDate = yr === 2026 ? START_DATE : `${yr}0101`;
         const toDate = yr === currentYear ? getFormattedDate() : `${yr}1231`;
         chunks.push({
             id: String(yr),
