@@ -35,20 +35,19 @@ function getDatabaseUrl(): string | undefined {
 }
 
 const dbUrl = getDatabaseUrl();
+if (dbUrl) {
+  process.env.DATABASE_URL = dbUrl;
+}
 
 export const db =
   globalForPrisma.prisma ||
-  new PrismaClient(
-    dbUrl
-      ? {
-          datasources: {
-            db: {
-              url: dbUrl,
-            },
-          },
-        }
-      : undefined
-  );
+  new PrismaClient({
+    datasources: {
+      db: {
+        url: dbUrl,
+      },
+    },
+  });
 
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = db;
 
