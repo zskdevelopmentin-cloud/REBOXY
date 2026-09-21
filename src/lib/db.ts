@@ -18,6 +18,11 @@ function getPrismaClient() {
         }
         if (fs.existsSync(tmpPath)) {
           dbPath = tmpPath;
+          try {
+            fs.chmodSync(tmpPath, 0o666);
+          } catch (e) {
+            // ignore chmod errors if restricted
+          }
         }
       } catch (e) {
         console.warn('Could not copy db to /tmp:', e);
@@ -38,5 +43,6 @@ function getPrismaClient() {
 export const db = globalForPrisma.prisma || getPrismaClient();
 
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = db;
+
 
 
