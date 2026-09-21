@@ -1,24 +1,24 @@
 import { SignJWT, jwtVerify } from 'jose';
 
-const JWT_SECRET = process.env.JWT_SECRET || (process.env.NODE_ENV === 'production' ? '' : 'reboxy-dev-jwt-secret-key-2026');
-if (!JWT_SECRET && process.env.NODE_ENV === 'production') {
-  throw new Error('JWT_SECRET environment variable is missing in production environment');
+function getSecretKey(): Uint8Array {
+  const secret = process.env.JWT_SECRET || 'reboxy-jwt-secret-key-2026';
+  return new TextEncoder().encode(secret);
 }
-const encodedSecret = new TextEncoder().encode(JWT_SECRET);
 
 export async function signToken(payload: any) {
   return new SignJWT(payload)
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
     .setExpirationTime('1d')
-    .sign(encodedSecret);
+    .sign(getSecretKey());
 }
 
 export async function verifyToken(token: string) {
   try {
-    const { payload } = await jwtVerify(token, encodedSecret);
+    const { payload } = await jwtVerify(token, getSecretKey());
     return payload;
   } catch (error) {
     return null;
   }
 }
+
