@@ -9,20 +9,28 @@ function getPrismaClient() {
   if (!dbUrl || dbUrl.startsWith('file:')) {
     let dbPath = path.join(process.cwd(), 'prisma', 'dev.db');
 
-    // On Vercel / serverless production environment, copy dev.db to writable /tmp directory
+    // On Vercel / serverless production environment, ensure dev.db in /tmp has full write permissions
     if (process.env.VERCEL || process.env.NODE_ENV === 'production') {
       try {
         const tmpPath = '/tmp/dev.db';
-        if (fs.existsSync(dbPath) && !fs.existsSync(tmpPath)) {
-          fs.copyFileSync(dbPath, tmpPath);
-        }
+        let isWritable = false;
+
         if (fs.existsSync(tmpPath)) {
-          dbPath = tmpPath;
           try {
             fs.chmodSync(tmpPath, 0o666);
+            isWritable = true;
           } catch (e) {
-            // ignore chmod errors if restricted
+            try { fs.unlinkSync(tmpPath); } catch (err) {}
           }
+        }
+
+        if (!isWritable && !fs.existsSync(tmpPath) && fs.existsSync(dbPath)) {
+          fs.copyFileSync(dbPath, tmpPath);
+          try { fs.chmodSync(tmpPath, 0o666); } catch (e) {}
+        }
+
+        if (fs.existsSync(tmpPath)) {
+          dbPath = tmpPath;
         }
       } catch (e) {
         console.warn('Could not copy db to /tmp:', e);
@@ -43,6 +51,7 @@ function getPrismaClient() {
 export const db = globalForPrisma.prisma || getPrismaClient();
 
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = db;
+
 
 
 
