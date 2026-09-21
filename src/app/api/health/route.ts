@@ -7,7 +7,19 @@ export async function GET() {
   const startTime = Date.now();
   
   try {
-    // Basic DB connectivity check
+    // Basic DB connectivity check & schema verification
+    try {
+      await db.$executeRawUnsafe(`ALTER TABLE "SyncLog" ADD COLUMN IF NOT EXISTS "recordsReceived" INTEGER NOT NULL DEFAULT 0;`);
+      await db.$executeRawUnsafe(`ALTER TABLE "SyncLog" ADD COLUMN IF NOT EXISTS "recordsCreated" INTEGER NOT NULL DEFAULT 0;`);
+      await db.$executeRawUnsafe(`ALTER TABLE "SyncLog" ADD COLUMN IF NOT EXISTS "recordsUpdated" INTEGER NOT NULL DEFAULT 0;`);
+      await db.$executeRawUnsafe(`ALTER TABLE "SyncLog" ADD COLUMN IF NOT EXISTS "recordsSkipped" INTEGER NOT NULL DEFAULT 0;`);
+      await db.$executeRawUnsafe(`ALTER TABLE "SyncLog" ADD COLUMN IF NOT EXISTS "recordsDeleted" INTEGER NOT NULL DEFAULT 0;`);
+      await db.$executeRawUnsafe(`ALTER TABLE "SyncLog" ADD COLUMN IF NOT EXISTS "alterIdBefore" INTEGER;`);
+      await db.$executeRawUnsafe(`ALTER TABLE "SyncLog" ADD COLUMN IF NOT EXISTS "alterIdAfter" INTEGER;`);
+    } catch (e) {
+      // Ignore if DDL already exists or fails non-critically
+    }
+
     const companyCount = await db.company.count();
     const dbLatencyMs = Date.now() - startTime;
 
