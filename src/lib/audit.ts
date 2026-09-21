@@ -12,7 +12,11 @@ export async function logAuditAction(options: AuditLogOptions) {
   try {
     const { userId, action, entity, entityId, details } = options;
 
-    await db.auditLog.create({
+    if (!(db as any).auditLog) {
+      return;
+    }
+
+    await (db as any).auditLog.create({
       data: {
         userId: userId || null,
         action,
@@ -25,3 +29,4 @@ export async function logAuditAction(options: AuditLogOptions) {
     console.error('Failed to log audit action:', error);
   }
 }
+
