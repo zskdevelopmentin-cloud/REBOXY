@@ -61,7 +61,7 @@ async function fetchTallyData(sinceAlterId = 0, options = {}) {
         
         const vchRes = await axios.post(TALLY_URL, vchXmlReq, {
             headers: { 'Content-Type': 'text/xml' },
-            timeout: 60000
+            timeout: 180000
         });
 
         const vchJson = xmlParser.parse(vchRes.data);
@@ -152,7 +152,7 @@ async function fetchTallyData(sinceAlterId = 0, options = {}) {
             
             const ledgerRes = await axios.post(TALLY_URL, ledgerXmlReq, {
                 headers: { 'Content-Type': 'text/xml' },
-                timeout: 60000
+                timeout: 180000
             });
 
             const ledgerJson = xmlParser.parse(ledgerRes.data);
@@ -197,7 +197,7 @@ async function fetchTallyData(sinceAlterId = 0, options = {}) {
             
             const stockRes = await axios.post(TALLY_URL, stockXmlReq, {
                 headers: { 'Content-Type': 'text/xml' },
-                timeout: 60000
+                timeout: 180000
             });
 
             const stockJson = xmlParser.parse(stockRes.data);

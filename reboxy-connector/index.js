@@ -6,7 +6,7 @@ const { fetchTallyData, getFormattedDate } = require('./tally-xml-service');
 
 const SYNC_INTERVAL_MS = parseInt(process.env.SYNC_INTERVAL_MS || '60000', 10);
 const COMPANY_ID = process.env.COMPANY_ID || 'SUPREME-FOOTCARE';
-const START_YEAR = parseInt(process.env.START_YEAR || '2015', 10);
+const START_YEAR = parseInt(process.env.START_YEAR || '2020', 10);
 const STATE_FILE = path.join(__dirname, 'sync-state.json');
 
 function loadLocalState() {
