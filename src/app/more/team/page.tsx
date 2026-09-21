@@ -155,17 +155,18 @@ export default function SalesTeamPage() {
     }
   };
 
-  const filteredSalespeople = salespeople.filter(sp => {
+  const filteredSalespeople = (Array.isArray(salespeople) ? salespeople : []).filter(sp => {
     const q = search.trim().toLowerCase();
     const matchesStatus = statusFilter === 'ALL' || sp.status === statusFilter;
     if (!matchesStatus) return false;
     if (!q) return true;
     return (
-      (sp.name || '').toLowerCase().includes(q) ||
-      (sp.code || '').toLowerCase().includes(q) ||
-      (sp.phone || '').toLowerCase().includes(q)
+      (sp?.name || '').toLowerCase().includes(q) ||
+      (sp?.code || '').toLowerCase().includes(q) ||
+      (sp?.phone || '').toLowerCase().includes(q)
     );
   });
+
 
   return (
     <div className="flex flex-col h-full bg-gray-50 dark:bg-gray-950 font-inter animate-in slide-in-from-right duration-300 pb-24">
@@ -418,10 +419,11 @@ export default function SalesTeamPage() {
             </div>
 
             <div className="divide-y divide-gray-100 dark:divide-gray-800 max-h-80 overflow-y-auto no-scrollbar border border-gray-100 dark:border-gray-800 rounded-2xl">
-              {allLedgers
+              {(Array.isArray(allLedgers) ? allLedgers : [])
                 .filter(l => l.type === 'Customer' || l.group?.toLowerCase().includes('debtor'))
                 .filter(l => (l.name || '').toLowerCase().includes(customerSearch.toLowerCase()))
                 .map(cust => {
+
                   const isChecked = selectedCustomerIds.includes(cust.id);
 
                   return (

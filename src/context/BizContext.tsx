@@ -166,12 +166,12 @@ export const BizProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const activeData: BizData = {
-    vouchers: fullReportData.vouchers?.length ? fullReportData.vouchers : (dashboardData?.recentVouchers || []),
-    ledgers: fullReportData.ledgers || [],
-    stock: fullReportData.stock || [],
+    vouchers: Array.isArray(fullReportData?.vouchers) ? fullReportData.vouchers : (Array.isArray(dashboardData?.recentVouchers) ? dashboardData.recentVouchers : []),
+    ledgers: Array.isArray(fullReportData?.ledgers) ? fullReportData.ledgers : [],
+    stock: Array.isArray(fullReportData?.stock) ? fullReportData.stock : [],
     users: [],
     settings: {
-      company: fullReportData.company || { name: 'SUPREME FOOTCARE', gstin: '', address: '' },
+      company: (fullReportData?.company && typeof fullReportData.company === 'object' && fullReportData.company.name) ? fullReportData.company : { name: currentUser?.companyName || 'REBOXY TRADERS', gstin: '', address: '' },
       darkMode: false,
       currency: 'INR',
       dateFormat: 'DD/MM/YYYY',
@@ -179,6 +179,7 @@ export const BizProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     },
     auth: { username: '', password: '' }
   };
+
 
   const syncData = async () => {
     await refreshDashboard(startDate, endDate);
