@@ -38,27 +38,36 @@ const InvoiceForm = ({ type, onBack }: { type: any, onBack: () => void }) => {
   const { data, addVoucher } = useBiz();
   const [partyId, setPartyId] = useState('');
   const [items, setItems] = useState<VoucherItem[]>([{ itemId: '', qty: 1, rate: 0, total: 0 }]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
-  const subtotal = items.reduce((sum, item) => sum + (item.qty * item.rate), 0);
+  const subtotal = items.reduce((sum, item) => sum + ((item.qty ?? item.quantity ?? 0) * item.rate), 0);
   const tax = subtotal * 0.18;
   const total = subtotal + tax;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!partyId || items.some(i => !i.itemId)) return;
+    if (!partyId || items.some(i => !i.itemId) || isSubmitting) return;
     
-    addVoucher({
-      id: `vch_${Date.now()}`,
-      vNo: `${type.substring(0, 3).toUpperCase()}/${Math.floor(Math.random() * 9000 + 1000)}`,
-      type,
-      date: new Date().toISOString(),
-      partyId,
-      partyName: data.ledgers.find(l => l.id === partyId)?.name || 'Unknown',
-      amount: total,
-      status: 'Fulfilled',
-      items: items.map(i => ({ ...i, total: i.qty * i.rate }))
-    });
-    onBack();
+    setIsSubmitting(true);
+    try {
+      await addVoucher({
+        type,
+        date: new Date().toISOString(),
+        partyId,
+        partyName: data.ledgers.find(l => l.id === partyId)?.name || 'Unknown',
+        amount: total,
+        items: items.map(i => ({
+          itemId: i.itemId,
+          quantity: i.qty ?? i.quantity ?? 1,
+          rate: i.rate
+        }))
+      });
+      onBack();
+    } catch (error) {
+      console.error('Failed to submit voucher:', error);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -108,7 +117,7 @@ const InvoiceForm = ({ type, onBack }: { type: any, onBack: () => void }) => {
                                     <p className="text-[9px] font-bold text-gray-400 uppercase mb-1">Quantity</p>
                                     <input 
                                         type="number" 
-                                        value={item.qty} 
+                                        value={item.qty ?? 1} 
                                         onChange={e => {
                                             const newItems = [...items];
                                             newItems[i].qty = Number(e.target.value);
@@ -132,7 +141,7 @@ const InvoiceForm = ({ type, onBack }: { type: any, onBack: () => void }) => {
                                 </div>
                                 <div className="text-right">
                                     <p className="text-[9px] font-bold text-gray-400 uppercase mb-1">Total</p>
-                                    <p className="text-sm font-black dark:text-white">{formatCurrency(item.qty * item.rate)}</p>
+                                    <p className="text-sm font-black dark:text-white">{formatCurrency((item.qty ?? item.quantity ?? 0) * item.rate)}</p>
                                 </div>
                             </div>
                             {items.length > 1 && (
@@ -149,8 +158,12 @@ const InvoiceForm = ({ type, onBack }: { type: any, onBack: () => void }) => {
                 <div className="flex justify-between text-xl font-black dark:text-white border-t border-gray-200 dark:border-gray-700 pt-3 mt-1 uppercase tracking-tighter"><span>Grand Total</span><span className="text-primary">{formatCurrency(total)}</span></div>
             </section>
 
-            <button type="submit" className="w-full p-5 bg-primary text-white rounded-[2rem] font-black uppercase tracking-widest shadow-xl shadow-primary/30 active:scale-95 transition-all">
-                Save & Post Voucher
+            <button 
+                type="submit" 
+                disabled={isSubmitting}
+                className="w-full p-5 bg-primary text-white rounded-[2rem] font-black uppercase tracking-widest shadow-xl shadow-primary/30 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+                {isSubmitting ? 'Posting Voucher...' : 'Save & Post Voucher'}
             </button>
         </form>
     </div>

@@ -11,41 +11,53 @@ export interface StockItem {
   id: string;
   name: string;
   unit: string;
-  rate: number;
-  openingQty: number;
-  inQty: number;
-  outQty: number;
+  rate?: number;
+  openingQty?: number;
+  inQty?: number;
+  outQty?: number;
+  currentStock?: number;
+  salesPrice?: number;
+  purchasePrice?: number;
   category?: string;
 }
 
 export interface Ledger {
   id: string;
   name: string;
-  type: 'Customer' | 'Supplier';
-  balance: number;
+  group?: string;
+  type: 'Customer' | 'Supplier' | string;
+  openingBalance?: number;
+  closingBalance: number;
   email?: string;
   phone?: string;
   city?: string;
   gst?: string;
+  creditLimit?: number;
+  creditDays?: number;
+  salesPersonId?: string;
 }
 
 export interface VoucherItem {
+  id?: string;
   itemId: string;
-  qty: number;
+  description?: string;
+  qty?: number;
+  quantity?: number;
   rate: number;
-  total: number;
+  amount?: number;
+  total?: number;
 }
 
 export interface Voucher {
   id: string;
   vNo: string;
-  type: 'Sales' | 'Purchase' | 'Receipt' | 'Payment' | 'Sales Order' | 'Purchase Order' | 'Credit Note' | 'Debit Note';
+  type: string;
   date: string;
-  partyId: string;
+  partyId?: string;
   partyName: string;
   amount: number;
   status: string;
-  items: VoucherItem[];
+  items?: VoucherItem[];
 }
 
 export interface AppSettings {

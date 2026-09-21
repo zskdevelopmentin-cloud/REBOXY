@@ -2,12 +2,18 @@ export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { buildDateRangeFilter } from '@/lib/reporting';
 
 export async function GET(req: Request) {
     const role = req.headers.get('x-user-role');
     const userCompanyId = req.headers.get('x-company-id');
+    const userId = req.headers.get('x-user-id');
     const { searchParams } = new URL(req.url);
-    
+
+    if (!userId) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
     const requestedCompanyId = searchParams.get('companyId');
@@ -18,42 +24,50 @@ export async function GET(req: Request) {
     const voucherId = searchParams.get('voucherId');
 
     try {
-        let activeCompanyId = requestedCompanyId;
-        if (role !== 'SUPER_ADMIN' && userCompanyId) {
-            activeCompanyId = userCompanyId;
+        let activeCompanyId: string | null = null;
+        if (role === 'SUPER_ADMIN') {
+            activeCompanyId = requestedCompanyId || userCompanyId;
+            if (!activeCompanyId) {
+                const firstCompany = await db.company.findFirst({ where: { tallyConnected: true } });
+                if (firstCompany) activeCompanyId = firstCompany.id;
+            }
+        } else {
+            activeCompanyId = userCompanyId || null;
         }
 
         if (!activeCompanyId) {
-            const firstCompany = await db.company.findFirst({ where: { tallyConnected: true } });
-            if (firstCompany) activeCompanyId = firstCompany.id;
+            return NextResponse.json({ error: 'No active company assigned' }, { status: 400 });
         }
 
         // Single voucher detail fetch if voucherId is provided
         if (voucherId) {
-            const voucherDetail = await db.voucher.findUnique({
-                where: { id: voucherId },
+            const voucherDetail = await db.voucher.findFirst({
+                where: { id: voucherId, companyId: activeCompanyId },
                 include: {
                     party: true,
                     ledger: true,
                     items: { include: { item: true } }
                 }
             });
+            if (!voucherDetail) {
+                return NextResponse.json({ error: 'Voucher not found or access denied' }, { status: 404 });
+            }
             return NextResponse.json({ voucher: voucherDetail });
         }
 
         let whereClause: any = {
             companyId: activeCompanyId || undefined,
+            status: { not: 'CANCELLED' },
+            NOT: { type: { contains: 'Sales Order', mode: 'insensitive' } },
             OR: [
                 { type: { contains: 'Sales', mode: 'insensitive' } },
                 { type: { contains: 'Credit Note', mode: 'insensitive' } }
             ]
         };
 
-        if (startDate && endDate) {
-            whereClause.date = {
-                gte: new Date(startDate),
-                lte: new Date(endDate)
-            };
+        const dateFilter = buildDateRangeFilter(startDate, endDate);
+        if (dateFilter) {
+            whereClause.date = dateFilter;
         }
 
         if (ledgerId) {
@@ -266,7 +280,6 @@ export async function GET(req: Request) {
         } else if (sort === 'nameDesc') {
             groupedData.sort((a, b) => b.name.localeCompare(a.name));
         } else {
-            // Default: Highest Net Sales first
             groupedData.sort((a, b) => b.netSales - a.netSales);
         }
 

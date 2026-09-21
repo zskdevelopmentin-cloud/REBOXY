@@ -1,16 +1,40 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useBiz } from '../context/BizContext';
 import { formatCurrency, formatDate } from '../utils/formatters';
 import { 
-  TrendingUp, TrendingDown, DollarSign, ShoppingCart, FileText, CreditCard, Scale, Landmark, ArrowUpRight, ArrowDownLeft, ChevronRight
+  TrendingUp, TrendingDown, DollarSign, ShoppingCart, FileText, CreditCard, 
+  Scale, Landmark, ArrowUpRight, ArrowDownLeft, ChevronRight, Bell, Calendar, Users, AlertTriangle
 } from 'lucide-react';
 import Login from './login/page';
 
 export default function DashboardPage() {
-  const { dashboardData, isAuthenticated, refreshDashboard, datePreset, startDate, endDate } = useBiz();
+  const { dashboardData, isAuthenticated, refreshDashboard, datePreset, startDate, endDate, data } = useBiz();
+
+  const [pendingRemindersCount, setPendingRemindersCount] = useState<number>(0);
+  const [visitsCount, setVisitsCount] = useState<number>(0);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      Promise.all([
+        fetch('/api/payment-reminders').then(r => r.json()),
+        fetch('/api/visits').then(r => r.json())
+      ]).then(([reminders, visits]) => {
+        if (Array.isArray(reminders)) {
+          setPendingRemindersCount(reminders.filter((r: any) => r.status === 'PENDING').length);
+        }
+        if (Array.isArray(visits)) {
+          setVisitsCount(visits.length);
+        }
+      }).catch(err => console.error('Failed operational count fetch', err));
+    }
+  }, [isAuthenticated]);
+
+  const overLimitCount = React.useMemo(() => {
+    return data.ledgers.filter(l => l.type === 'Customer' && l.creditLimit && l.creditLimit > 0 && (l.closingBalance || 0) > l.creditLimit).length;
+  }, [data.ledgers]);
 
   React.useEffect(() => {
     if (isAuthenticated && !dashboardData) {
@@ -36,6 +60,34 @@ export default function DashboardPage() {
       {/* Active Date Banner */}
       <div className="flex items-center justify-between px-1 text-[10px] font-black text-gray-400 uppercase tracking-widest">
         <span>Showing Metrics For: <strong className="text-primary">{datePreset}</strong> ({formatDate(startDate)} to {formatDate(endDate)})</span>
+      </div>
+
+      {/* Operational Follow-up Summary Section */}
+      <div className="bg-gradient-to-r from-slate-900 to-indigo-950 p-4 rounded-3xl text-white shadow-lg space-y-3">
+        <div className="flex justify-between items-center">
+          <div className="flex items-center gap-2">
+            <Bell size={18} className="text-amber-400 animate-pulse" />
+            <h4 className="text-xs font-black uppercase tracking-wider">Business Operations & CRM Hub</h4>
+          </div>
+          <Link href="/reminders" className="text-[10px] font-black uppercase tracking-widest bg-white/10 px-3 py-1 rounded-full hover:bg-white/20 transition-all flex items-center gap-1">
+            View All Tasks <ChevronRight size={12} />
+          </Link>
+        </div>
+
+        <div className="grid grid-cols-3 gap-2 text-center pt-1">
+          <Link href="/reminders" className="bg-white/10 p-2.5 rounded-2xl hover:bg-white/20 transition-all">
+            <p className="text-[9px] font-bold text-amber-300 uppercase">Pending Reminders</p>
+            <p className="text-lg font-black">{pendingRemindersCount}</p>
+          </Link>
+          <Link href="/reminders" className="bg-white/10 p-2.5 rounded-2xl hover:bg-white/20 transition-all">
+            <p className="text-[9px] font-bold text-teal-300 uppercase">Customer Visits</p>
+            <p className="text-lg font-black">{visitsCount}</p>
+          </Link>
+          <Link href="/reminders" className="bg-white/10 p-2.5 rounded-2xl hover:bg-white/20 transition-all">
+            <p className="text-[9px] font-bold text-red-300 uppercase">Over Credit Limit</p>
+            <p className="text-lg font-black text-red-400">{overLimitCount}</p>
+          </Link>
+        </div>
       </div>
 
       {/* Biz Analyst Metrics Cards - Responsive Grid Layout */}

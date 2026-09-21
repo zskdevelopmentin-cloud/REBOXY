@@ -183,7 +183,29 @@ export const BizProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const syncData = async () => {
     await refreshDashboard(startDate, endDate);
   };
-  const addVoucher = async () => {};
+  const addVoucher = async (voucherPayload: any) => {
+    try {
+      const res = await fetch('/api/vouchers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(voucherPayload)
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        addToast(errorData.error || 'Failed to save voucher', 'error');
+        throw new Error(errorData.error || 'Failed to save voucher');
+      }
+
+      const responseData = await res.json();
+      addToast(`Voucher ${responseData.voucher?.vNo || ''} posted successfully`, 'success');
+      await refreshDashboard(startDate, endDate);
+      return responseData.voucher;
+    } catch (error: any) {
+      console.error('Failed to add voucher:', error);
+      throw error;
+    }
+  };
   const migrateToCloud = async () => {};
 
   const value = {

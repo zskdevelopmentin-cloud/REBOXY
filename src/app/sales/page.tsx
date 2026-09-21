@@ -8,6 +8,9 @@ import {
 } from 'lucide-react';
 import { formatCurrency, formatDate } from '@/utils/formatters';
 import { useBiz } from '@/context/BizContext';
+import { calculateParty360 } from '@/utils/party360';
+
+import { exportReportData } from '@/utils/export';
 
 type DatePreset = 'Today' | 'Yesterday' | 'This Week' | 'Previous Week' | 'This Month' | 'Previous Month' | 'This Quarter' | 'Financial Year' | 'Custom';
 
@@ -28,7 +31,7 @@ type GroupByOption =
 type SortOption = 'highest' | 'lowest' | 'nameAsc' | 'nameDesc';
 
 export default function SalesPage() {
-  const { datePreset, startDate, endDate, setDateRange } = useBiz();
+  const { data, datePreset, startDate, endDate, setDateRange } = useBiz();
   const [showDatePicker, setShowDatePicker] = useState(false);
 
   const [mode, setMode] = useState<'net' | 'gross'>('net');
@@ -49,6 +52,20 @@ export default function SalesPage() {
   const [selectedVoucherId, setSelectedVoucherId] = useState<string | null>(null);
   const [voucherDetail, setVoucherDetail] = useState<any>(null);
   const [loadingVoucher, setLoadingVoucher] = useState(false);
+
+  const handleExportCSV = () => {
+    if (!groupedData || groupedData.length === 0) return;
+    const headers = ['Group/Name', 'Voucher Count', 'Quantity', 'Gross Sales (₹)', 'Credit Notes (₹)', 'Net Sales (₹)'];
+    const rows = groupedData.map((g: any) => [
+      g.name,
+      g.voucherCount,
+      g.quantity || 0,
+      g.grossSales || 0,
+      g.creditNotes || 0,
+      g.netSales || 0
+    ]);
+    exportReportData(`sales_report_${groupBy}`, headers, rows);
+  };
 
   const handlePresetChange = (preset: DatePreset) => {
     setDateRange(preset);
@@ -148,8 +165,12 @@ export default function SalesPage() {
         </div>
         
         <div className="flex items-center gap-2">
-          <button className="p-2 text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white">
-            <Share2 size={18} />
+          <button 
+            onClick={handleExportCSV}
+            title="Export CSV" 
+            className="p-2 text-primary hover:bg-primary/10 rounded-xl transition-all flex items-center gap-1 text-xs font-black uppercase"
+          >
+            <Share2 size={18} /> <span className="hidden sm:inline">Export</span>
           </button>
         </div>
       </header>
@@ -435,7 +456,7 @@ export default function SalesPage() {
 
       </div>
 
-      {/* Ledger Sales Drill-Down Modal */}
+      {/* Ledger Sales Drill-Down Modal (Customer 360) */}
       {selectedLedger && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex justify-end animate-in fade-in duration-200">
           <div className="w-full max-w-lg bg-white dark:bg-gray-900 h-full overflow-y-auto p-4 space-y-4 animate-in slide-in-from-right duration-300">
@@ -446,7 +467,7 @@ export default function SalesPage() {
                 </button>
                 <div>
                   <h3 className="text-base font-black dark:text-white uppercase tracking-tight truncate">{selectedLedger.name}</h3>
-                  <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Group Analytics Drill-Down</p>
+                  <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Customer 360 Analysis</p>
                 </div>
               </div>
               <button onClick={() => setSelectedLedger(null)} className="text-gray-400 hover:text-gray-600">
@@ -454,43 +475,78 @@ export default function SalesPage() {
               </button>
             </header>
 
-            {/* Category Summary Card */}
-            <div className="p-4 bg-primary/5 rounded-2xl border border-primary/10 space-y-2">
-              <div className="flex justify-between text-xs font-bold text-gray-500 uppercase tracking-wider">
-                <span>Gross Sales</span>
-                <span className="font-black text-gray-900 dark:text-white">{formatCurrency(selectedLedger.grossSales)}</span>
-              </div>
-              <div className="flex justify-between text-xs font-bold text-gray-500 uppercase tracking-wider">
-                <span>Credit Notes</span>
-                <span className="font-black text-orange-600">{formatCurrency(selectedLedger.creditNotes)}</span>
-              </div>
-              <div className="flex justify-between text-sm font-black text-gray-900 dark:text-white border-t border-primary/10 pt-2 uppercase tracking-tight">
-                <span>Net Sales</span>
-                <span className="text-primary">{formatCurrency(selectedLedger.netSales)}</span>
-              </div>
-            </div>
+            {(() => {
+              const matchedLedger = data.ledgers.find(l => l.id === selectedLedger.id || l.name === selectedLedger.name) || {
+                id: selectedLedger.id || '',
+                name: selectedLedger.name,
+                type: 'Customer',
+                closingBalance: selectedLedger.netSales || 0
+              };
+              const m = calculateParty360(matchedLedger, data.vouchers);
 
-            {/* Related Transactions List */}
-            <div className="space-y-2 pt-2">
-              <h4 className="text-xs font-black uppercase tracking-wider text-gray-400">Transactions</h4>
-              {salesData?.vouchers
-                ?.filter((v: any) => v.partyName === selectedLedger.name || v.partyId === selectedLedger.id || selectedLedger.name.includes(v.vNo))
-                .map((v: any) => (
-                  <div
-                    key={v.id}
-                    onClick={() => openVoucherDetail(v.id)}
-                    className="p-3.5 bg-gray-50 dark:bg-gray-800/60 rounded-xl border border-gray-100 dark:border-gray-800 flex items-center justify-between cursor-pointer hover:border-primary/40 transition-all"
-                  >
-                    <div>
-                      <p className="text-xs font-black dark:text-white uppercase tracking-tight">{v.vNo}</p>
-                      <p className="text-[10px] text-gray-400 font-bold uppercase mt-0.5">{formatDate(v.date)} • {v.type}</p>
+              return (
+                <div className="space-y-4">
+                  {/* Category Summary Card */}
+                  <div className="p-4 bg-primary/5 rounded-2xl border border-primary/10 space-y-3">
+                    <div className="flex justify-between items-center pb-2 border-b border-primary/10">
+                      <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Closing Balance</span>
+                      <span className="text-lg font-black text-primary">{formatCurrency(m.closingBalance)}</span>
                     </div>
-                    <p className={`text-xs font-black ${v.type?.toLowerCase().includes('credit') ? 'text-orange-600' : 'text-green-600'}`}>
-                      {formatCurrency(v.amount)}
-                    </p>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div className="flex justify-between font-bold text-gray-500">
+                        <span>Gross Sales:</span>
+                        <span className="text-gray-900 dark:text-white">{formatCurrency(m.totalSales)}</span>
+                      </div>
+                      <div className="flex justify-between font-bold text-gray-500">
+                        <span>Credit Notes:</span>
+                        <span className="text-orange-600">{formatCurrency(m.creditNotes)}</span>
+                      </div>
+                      <div className="flex justify-between font-bold text-gray-500">
+                        <span>Total Receipts:</span>
+                        <span className="text-emerald-600">{formatCurrency(m.totalReceipts)}</span>
+                      </div>
+                      <div className="flex justify-between font-bold text-gray-500">
+                        <span>Net Sales:</span>
+                        <span className="text-primary">{formatCurrency(m.netSales)}</span>
+                      </div>
+                    </div>
                   </div>
-                ))}
-            </div>
+
+                  {/* Related Transactions List */}
+                  <div className="space-y-2 pt-2">
+                    <div className="flex justify-between items-center">
+                      <h4 className="text-xs font-black uppercase tracking-wider text-gray-400">Transactions ({m.transactionCount})</h4>
+                      <span className="text-[10px] font-bold text-gray-400">Opening: ₹{m.openingBalance.toLocaleString()}</span>
+                    </div>
+
+                    <div className="divide-y divide-gray-100 dark:divide-gray-800 border border-gray-100 dark:border-gray-800 rounded-2xl overflow-hidden">
+                      {m.chronologicalLedger.map((v) => (
+                        <div
+                          key={v.id}
+                          onClick={() => openVoucherDetail(v.id)}
+                          className="p-3.5 bg-gray-50 dark:bg-gray-800/60 flex items-center justify-between cursor-pointer hover:border-primary/40 transition-all"
+                        >
+                          <div>
+                            <p className="text-xs font-black dark:text-white uppercase tracking-tight">{v.vNo}</p>
+                            <p className="text-[10px] text-gray-400 font-bold uppercase mt-0.5">{formatDate(v.date)} • {v.type}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className={`text-xs font-black ${v.type?.toLowerCase().includes('credit') || v.type?.toLowerCase().includes('receipt') ? 'text-emerald-600' : 'text-gray-900 dark:text-white'}`}>
+                              {formatCurrency(v.amount)}
+                            </p>
+                            <p className="text-[9px] font-bold text-blue-600 dark:text-blue-400">Bal: ₹{v.runningBalance.toLocaleString()}</p>
+                          </div>
+                        </div>
+                      ))}
+                      {m.chronologicalLedger.length === 0 && (
+                        <p className="text-xs text-gray-400 text-center py-6">No transaction entries found for this customer.</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
           </div>
         </div>
       )}

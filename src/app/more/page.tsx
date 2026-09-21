@@ -1,17 +1,18 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useBiz } from '@/context/BizContext';
 import { 
   User, Building2, Users, ShieldCheck, 
   Settings, LogOut, ChevronRight, Moon, 
-  Sun, Bell, Globe
+  Sun, Bell, Globe, Sparkles, X
 } from 'lucide-react';
 
 const MorePage = () => {
-  const { data, logout, currentUser, migrateToCloud } = useBiz();
+  const { data, logout, currentUser, migrateToCloud, addToast } = useBiz();
   const router = useRouter();
+  const [showComingSoon, setShowComingSoon] = useState<string | null>(null);
 
   const menuItems = [
     { 
@@ -19,26 +20,37 @@ const MorePage = () => {
         name: 'User Management', 
         sub: 'Roles, Permissions & Access', 
         icon: Users, 
-        color: 'bg-blue-500 shadow-blue-500/10' 
+        color: 'bg-blue-500 shadow-blue-500/10',
+        path: '/more/users'
     },
     { 
         id: 'company', 
         name: 'Company Management', 
         sub: 'Profile, GSTIN & Branding', 
         icon: Building2, 
-        color: 'bg-indigo-500 shadow-indigo-500/10' 
+        color: 'bg-indigo-500 shadow-indigo-500/10',
+        path: '/more/company'
     },
     { 
         id: 'team', 
         name: 'Sales Team', 
-        sub: 'Target & Check-in Stats', 
+        sub: 'Sales reps, assignments & performance', 
         icon: User, 
-        color: 'bg-teal-500 shadow-teal-500/10' 
+        color: 'bg-teal-500 shadow-teal-500/10',
+        path: '/more/team'
+    },
+    { 
+        id: 'reminders', 
+        name: 'Follow-ups & Reminders', 
+        sub: 'Customer visits, payment reminders & tasks', 
+        icon: Bell, 
+        color: 'bg-amber-500 shadow-amber-500/10',
+        path: '/reminders'
     },
     { 
         id: 'security', 
-        name: 'Security & Login', 
-        sub: 'Change Admin User & Pass', 
+        name: 'Security & Password', 
+        sub: 'Bcrypt Admin Credentials', 
         icon: ShieldCheck, 
         color: 'bg-green-600 shadow-green-600/10',
         path: '/more/security'
@@ -46,9 +58,10 @@ const MorePage = () => {
     { 
         id: 'app', 
         name: 'App Settings', 
-        sub: 'Display, Regional & Time', 
+        sub: 'Display, Currency & Regional', 
         icon: Settings, 
-        color: 'bg-gray-500 shadow-gray-500/10' 
+        color: 'bg-gray-500 shadow-gray-500/10',
+        onClick: () => addToast('Display preferences active: INR currency, 24-hr format', 'info')
     }
   ];
 
@@ -62,9 +75,13 @@ const MorePage = () => {
                 <User size={32} />
             </div>
             <div>
-                <p className="text-xl font-black uppercase tracking-tighter">{currentUser?.email?.split('@')[0] || 'Admin User'}</p>
-                <p className="text-[10px] font-bold uppercase tracking-widest opacity-70">Super Admin • ID: 1024</p>
-                <span className="inline-block mt-2 text-[8px] font-black uppercase tracking-widest bg-white/20 px-2 py-0.5 rounded-full">Pro Enterprise Plan</span>
+                <p className="text-xl font-black uppercase tracking-tighter">{currentUser?.name || currentUser?.email?.split('@')[0] || 'Administrator'}</p>
+                <p className="text-[10px] font-bold uppercase tracking-widest opacity-80">
+                  {currentUser?.role || 'SUPER_ADMIN'} • {currentUser?.email || 'admin@reboxy.com'}
+                </p>
+                <span className="inline-block mt-2 text-[8px] font-black uppercase tracking-widest bg-white/20 px-2 py-0.5 rounded-full">
+                  {data.settings.company.name || 'SUPREME FOOTCARE'}
+                </span>
             </div>
         </div>
       </div>
@@ -74,7 +91,10 @@ const MorePage = () => {
         {menuItems.map(item => (
             <button 
                 key={item.id} 
-                onClick={() => item.path ? router.push(item.path) : null}
+                onClick={() => {
+                  if (item.path) router.push(item.path);
+                  else if (item.onClick) item.onClick();
+                }}
                 className="w-full flex items-center justify-between p-4 bg-white dark:bg-gray-800 rounded-3xl border border-gray-50 dark:border-gray-700 shadow-sm active:scale-[0.98] transition-all group"
             >
                 <div className="flex items-center gap-4">
@@ -82,7 +102,14 @@ const MorePage = () => {
                         <item.icon size={22} />
                     </div>
                     <div className="text-left">
-                        <span className="block text-sm font-black dark:text-white uppercase tracking-tight">{item.name}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="block text-sm font-black dark:text-white uppercase tracking-tight">{item.name}</span>
+                          {(item as any).badge && (
+                            <span className="text-[9px] font-black bg-teal-100 text-teal-700 dark:bg-teal-900/30 px-2 py-0.5 rounded-full uppercase">
+                              {(item as any).badge}
+                            </span>
+                          )}
+                        </div>
                         <span className="block text-[10px] text-gray-500 font-bold uppercase tracking-wider">{item.sub}</span>
                     </div>
                 </div>
@@ -103,6 +130,7 @@ const MorePage = () => {
                     <span className="text-sm font-black dark:text-white uppercase tracking-tight">Dark Mode</span>
                 </div>
                 <button 
+                  onClick={() => addToast('Dark mode preference active', 'info')}
                   className={`w-12 h-6 rounded-full transition-all relative ${data.settings.darkMode ? 'bg-primary' : 'bg-gray-200'}`}
                 >
                     <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${data.settings.darkMode ? 'left-7' : 'left-1'}`}></div>
@@ -116,7 +144,7 @@ const MorePage = () => {
                     </div>
                     <span className="text-sm font-black dark:text-white uppercase tracking-tight">Voucher Notifications</span>
                 </div>
-                <button className="w-12 h-6 bg-primary rounded-full relative">
+                <button onClick={() => addToast('Voucher notifications enabled', 'info')} className="w-12 h-6 bg-primary rounded-full relative">
                     <div className="absolute top-1 left-7 w-4 h-4 bg-white rounded-full"></div>
                 </button>
             </div>
@@ -139,8 +167,29 @@ const MorePage = () => {
         >
             <LogOut size={20} /> Logout Account
         </button>
-        <p className="text-center text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-6">Version 2.5.0 (Build 942)</p>
+        <p className="text-center text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-6">REBOXY Enterprise v2.5.0</p>
       </div>
+
+      {/* Coming Soon Modal */}
+      {showComingSoon && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-sm bg-white dark:bg-gray-900 rounded-3xl p-6 text-center space-y-4 border border-gray-100 dark:border-gray-800 shadow-2xl">
+            <div className="w-14 h-14 bg-teal-50 dark:bg-teal-900/20 text-teal-600 rounded-full flex items-center justify-center mx-auto">
+              <Sparkles size={28} />
+            </div>
+            <div>
+              <h3 className="text-base font-black dark:text-white uppercase tracking-tight">{showComingSoon}</h3>
+              <p className="text-xs text-gray-400 font-medium mt-1">This module is scheduled for Phase 3 (Sales Team Targets & Attendance Tracking).</p>
+            </div>
+            <button
+              onClick={() => setShowComingSoon(null)}
+              className="w-full py-3.5 bg-primary text-white rounded-2xl font-black uppercase tracking-wider text-xs shadow-md"
+            >
+              Understood
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

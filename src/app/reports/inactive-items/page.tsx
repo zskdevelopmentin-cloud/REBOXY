@@ -19,7 +19,7 @@ export default function InactiveItemsPage() {
     
     salesVouchers.forEach(v => {
         const vDate = new Date(v.date).getTime();
-        v.items.forEach(item => {
+        (v.items || []).forEach(item => {
             if (!latestItemSales[item.itemId] || vDate > latestItemSales[item.itemId]) {
                 latestItemSales[item.itemId] = vDate;
             }
@@ -73,7 +73,7 @@ export default function InactiveItemsPage() {
                     <div key={item.id} className="p-4 hover:bg-gray-50 transition-colors flex justify-between items-center">
                         <div className="flex-1 pr-3">
                             <h5 className="font-semibold text-sm text-gray-800 mb-1">{item.name}</h5>
-                            <p className="text-xs text-gray-500">Current Stock: <strong>{item.openingQty + item.inQty - item.outQty}</strong> {item.unit}</p>
+                            <p className="text-xs text-gray-500">Current Stock: <strong>{item.currentStock ?? ((item.openingQty || 0) + (item.inQty || 0) - (item.outQty || 0))}</strong> {item.unit}</p>
                         </div>
                         <div className="text-right shrink-0">
                             <span className="inline-block px-2.5 py-1 bg-gray-100 text-gray-600 rounded-lg text-xs font-bold whitespace-nowrap">

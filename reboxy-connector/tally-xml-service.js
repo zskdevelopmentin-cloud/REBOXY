@@ -2,7 +2,7 @@ require('dotenv').config();
 const axios = require('axios');
 const { XMLParser } = require('fast-xml-parser');
 
-const TALLY_URL = process.env.TALLY_URL || 'http://192.168.1.33:9000';
+const TALLY_URL = process.env.TALLY_URL || 'http://localhost:9000';
 
 const xmlParser = new XMLParser({
     ignoreAttributes: false,
@@ -28,14 +28,33 @@ function getFormattedDate(d = new Date()) {
     return `${year}${month}${day}`;
 }
 
-async function fetchTallyData() {
-    console.log(`[Tally Service] Connecting to Tally XML at ${TALLY_URL}...`);
+function parseBool(val) {
+    if (!val) return false;
+    const s = String(val).trim().toLowerCase();
+    return s === 'yes' || s === 'true' || s === '1';
+}
 
-    const fromDate = '20260401';
+function parseIntSafe(val, fallback = 0) {
+    if (!val) return fallback;
+    const n = parseInt(String(val).trim(), 10);
+    return isNaN(n) ? fallback : n;
+}
+
+/**
+ * Fetches ledgers, stock items, and vouchers from Tally XML server.
+ * Supports incremental sync filtering by sinceAlterId.
+ * @param {number} sinceAlterId 
+ */
+async function fetchTallyData(sinceAlterId = 0) {
+    console.log(`[Tally Service] Connecting to Tally XML at ${TALLY_URL} (sinceAlterId: ${sinceAlterId})...`);
+
+    const fromDate = '20200401';
     const toDate = getFormattedDate();
 
     try {
-        // 1. Fetch Day Book (Vouchers for the entire date range up to today)
+        let maxAlterIdSeen = sinceAlterId;
+
+        // 1. Fetch Day Book / Vouchers
         const vchXmlReq = `<ENVELOPE><HEADER><TALLYREQUEST>Export Data</TALLYREQUEST></HEADER><BODY><EXPORTDATA><REQUESTDESC><REPORTNAME>Day Book</REPORTNAME><STATICVARIABLES><SVEXPORTFORMAT>$$SysName:XML</SVEXPORTFORMAT><SVFROMDATE>${fromDate}</SVFROMDATE><SVTODATE>${toDate}</SVTODATE></STATICVARIABLES></REQUESTDESC></EXPORTDATA></BODY></ENVELOPE>`;
         
         const vchRes = await axios.post(TALLY_URL, vchXmlReq, {
@@ -45,7 +64,7 @@ async function fetchTallyData() {
 
         const vchJson = xmlParser.parse(vchRes.data);
         const messages = vchJson?.ENVELOPE?.BODY?.IMPORTDATA?.REQUESTDATA?.TALLYMESSAGE || [];
-        const msgList = Array.isArray(messages) ? messages : [messages];
+        const msgList = Array.isArray(messages) ? messages : (messages ? [messages] : []);
 
         let companyName = vchJson?.ENVELOPE?.BODY?.IMPORTDATA?.REQUESTDESC?.STATICVARIABLES?.SVCURRENTCOMPANY || 'SUPREME FOOTCARE';
 
@@ -53,21 +72,36 @@ async function fetchTallyData() {
         msgList.forEach(m => {
             if (m.VOUCHER) {
                 const v = m.VOUCHER;
+                const alterId = parseIntSafe(v.ALTERID || v['@_ALTERID'] || v.MASTERID || 0);
+                const masterId = parseIntSafe(v.MASTERID || v['@_MASTERID'] || 0);
+                const tallyGuid = String(v.GUID || v['@_GUID'] || v['@_REMOTEID'] || '');
+
+                if (alterId > maxAlterIdSeen) {
+                    maxAlterIdSeen = alterId;
+                }
+
+                // If doing incremental sync, only send if alterId > sinceAlterId (or if sinceAlterId is 0)
+                if (sinceAlterId > 0 && alterId > 0 && alterId <= sinceAlterId) {
+                    return;
+                }
+
                 const vType = v['@_VCHTYPE'] || v.VOUCHERTYPENAME || 'Sales';
                 const partyName = v.PARTYLEDGERNAME || v.PARTYNAME || 'Cash';
-                const vNo = v.VOUCHERNUMBER || v['@_VCHKEY'] || `VCH-${Date.now()}`;
+                const vNo = v.VOUCHERNUMBER || v['@_VCHKEY'] || (masterId ? `VCH-${masterId}` : `VCH-${Date.now()}`);
                 const rawDate = v.DATE;
-                
+                const isCancelled = parseBool(v.ISCANCELLED || v['@_ISCANCELLED']);
+                const isDeleted = parseBool(v.ISDELETED || v['@_ISDELETED']);
+
                 let amount = 0;
                 const ledgerEntries = v['ALLLEDGERENTRIES.LIST'] || v['LEDGERENTRIES.LIST'] || [];
-                const entriesList = Array.isArray(ledgerEntries) ? ledgerEntries : [ledgerEntries];
+                const entriesList = Array.isArray(ledgerEntries) ? ledgerEntries : (ledgerEntries ? [ledgerEntries] : []);
                 
                 entriesList.forEach(entry => {
                     const amt = Math.abs(parseFloat(entry.AMOUNT) || 0);
                     if (amt > amount) amount = amt;
                 });
 
-                // Parse Inventory Line Items if available in XML
+                // Parse Line Items
                 const inventoryEntries = v['ALLINVENTORYENTRIES.LIST'] || v['INVENTORYENTRIES.LIST'] || [];
                 const invList = Array.isArray(inventoryEntries) ? inventoryEntries : (inventoryEntries ? [inventoryEntries] : []);
                 
@@ -90,18 +124,24 @@ async function fetchTallyData() {
                 });
 
                 vouchers.push({
-                    tallyId: v.GUID || v['@_REMOTEID'] || String(vNo),
+                    tallyGuid: tallyGuid || null,
+                    masterId: masterId || null,
+                    alterId: alterId || null,
                     vNo: String(vNo),
                     type: String(vType),
                     date: parseTallyDate(rawDate),
                     partyName: String(partyName),
                     amount: amount,
+                    narration: v.NARRATION ? String(v.NARRATION) : null,
+                    status: (isCancelled || isDeleted) ? 'CANCELLED' : 'COMPLETED',
+                    isCancelled: isCancelled,
+                    isDeleted: isDeleted,
                     items: items
                 });
             }
         });
 
-        // 2. Fetch Ledgers (Masters)
+        // 2. Fetch Ledgers
         const ledgerXmlReq = `<ENVELOPE><HEADER><TALLYREQUEST>Export Data</TALLYREQUEST></HEADER><BODY><EXPORTDATA><REQUESTDESC><REPORTNAME>List of Accounts</REPORTNAME><STATICVARIABLES><SVEXPORTFORMAT>$$SysName:XML</SVEXPORTFORMAT><ACCOUNTTYPE>Ledgers</ACCOUNTTYPE></STATICVARIABLES></REQUESTDESC></EXPORTDATA></BODY></ENVELOPE>`;
         
         const ledgerRes = await axios.post(TALLY_URL, ledgerXmlReq, {
@@ -111,12 +151,24 @@ async function fetchTallyData() {
 
         const ledgerJson = xmlParser.parse(ledgerRes.data);
         const ledgerMsgs = ledgerJson?.ENVELOPE?.BODY?.IMPORTDATA?.REQUESTDATA?.TALLYMESSAGE || [];
-        const ledgerMsgList = Array.isArray(ledgerMsgs) ? ledgerMsgs : [ledgerMsgs];
+        const ledgerMsgList = Array.isArray(ledgerMsgs) ? ledgerMsgs : (ledgerMsgs ? [ledgerMsgs] : []);
 
         const ledgers = [];
         ledgerMsgList.forEach(m => {
             if (m.LEDGER) {
                 const l = m.LEDGER;
+                const alterId = parseIntSafe(l.ALTERID || l['@_ALTERID'] || l.MASTERID || 0);
+                const masterId = parseIntSafe(l.MASTERID || l['@_MASTERID'] || 0);
+                const tallyGuid = String(l.GUID || l['@_GUID'] || '');
+
+                if (alterId > maxAlterIdSeen) {
+                    maxAlterIdSeen = alterId;
+                }
+
+                if (sinceAlterId > 0 && alterId > 0 && alterId <= sinceAlterId) {
+                    return;
+                }
+
                 const parent = l.PARENT || 'Sundry Debtors';
                 let type = 'Customer';
                 if (typeof parent === 'string' && parent.includes('Creditor')) type = 'Supplier';
@@ -124,8 +176,10 @@ async function fetchTallyData() {
                 if (typeof parent === 'string' && parent.includes('Cash')) type = 'Cash';
 
                 ledgers.push({
-                    tallyId: l.GUID || l.NAME,
-                    name: l.NAME,
+                    tallyGuid: tallyGuid || null,
+                    masterId: masterId || null,
+                    alterId: alterId || null,
+                    name: String(l.NAME || ''),
                     group: typeof parent === 'string' ? parent : 'Sundry Debtors',
                     closingBalance: Math.abs(parseFloat(l.CLOSINGBALANCE) || 0),
                     type: type
@@ -133,15 +187,62 @@ async function fetchTallyData() {
             }
         });
 
-        console.log(`[Tally Service] Successfully extracted ${vouchers.length} Vouchers and ${ledgers.length} Ledgers for "${companyName}".`);
+        // 3. Fetch Inventory / Stock Items
+        const stockXmlReq = `<ENVELOPE><HEADER><TALLYREQUEST>Export Data</TALLYREQUEST></HEADER><BODY><EXPORTDATA><REQUESTDESC><REPORTNAME>List of Accounts</REPORTNAME><STATICVARIABLES><SVEXPORTFORMAT>$$SysName:XML</SVEXPORTFORMAT><ACCOUNTTYPE>Stock Items</ACCOUNTTYPE></STATICVARIABLES></REQUESTDESC></EXPORTDATA></BODY></ENVELOPE>`;
+        
+        const stockRes = await axios.post(TALLY_URL, stockXmlReq, {
+            headers: { 'Content-Type': 'text/xml' },
+            timeout: 60000
+        });
+
+        const stockJson = xmlParser.parse(stockRes.data);
+        const stockMsgs = stockJson?.ENVELOPE?.BODY?.IMPORTDATA?.REQUESTDATA?.TALLYMESSAGE || [];
+        const stockMsgList = Array.isArray(stockMsgs) ? stockMsgs : (stockMsgs ? [stockMsgs] : []);
+
+        const inventory = [];
+        stockMsgList.forEach(m => {
+            if (m.STOCKITEM) {
+                const s = m.STOCKITEM;
+                const alterId = parseIntSafe(s.ALTERID || s['@_ALTERID'] || s.MASTERID || 0);
+                const masterId = parseIntSafe(s.MASTERID || s['@_MASTERID'] || 0);
+                const tallyGuid = String(s.GUID || s['@_GUID'] || '');
+
+                if (alterId > maxAlterIdSeen) {
+                    maxAlterIdSeen = alterId;
+                }
+
+                if (sinceAlterId > 0 && alterId > 0 && alterId <= sinceAlterId) {
+                    return;
+                }
+
+                inventory.push({
+                    tallyGuid: tallyGuid || null,
+                    masterId: masterId || null,
+                    alterId: alterId || null,
+                    name: String(s.NAME || ''),
+                    category: s.CATEGORY ? String(s.CATEGORY) : null,
+                    unit: s.BASEUNITS ? String(s.BASEUNITS) : 'Nos',
+                    salesPrice: Math.abs(parseFloat(s.LASTSALESPRICE || s.OPENINGRATE) || 0),
+                    currentStock: Math.abs(parseFloat(s.CLOSINGBALANCE) || 0)
+                });
+            }
+        });
+
+        console.log(`[Tally Service] Extracted ${vouchers.length} Vouchers, ${ledgers.length} Ledgers, ${inventory.length} Items for "${companyName}" (maxAlterId: ${maxAlterIdSeen}).`);
 
         return {
             companyName,
+            maxAlterIdSeen,
             ledgers,
+            inventory,
             vouchers
         };
     } catch (error) {
-        console.error('[Tally Service] Error querying Tally XML:', error.message);
+        if (error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT') {
+            console.error(`[Tally Service] Tally Desktop is unreachable at ${TALLY_URL} (${error.code}).`);
+        } else {
+            console.error('[Tally Service] Error querying Tally XML:', error.message);
+        }
         throw error;
     }
 }

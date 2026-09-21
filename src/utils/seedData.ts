@@ -7,7 +7,7 @@ export const generateSeedData = (): BizData => {
     id: `cus_${i}`,
     name: `Customer ${i + 1} Enterprises`,
     type: 'Customer',
-    balance: Math.floor(Math.random() * 500000) + 10000,
+    closingBalance: Math.floor(Math.random() * 500000) + 10000,
     email: `contact${i}@example.com`,
     phone: `91${Math.floor(Math.random() * 9000000000 + 1000000000)}`,
     city: ['Mumbai', 'Delhi', 'Bangalore', 'Pune', 'Surat'][Math.floor(Math.random() * 5)],
@@ -18,7 +18,7 @@ export const generateSeedData = (): BizData => {
     id: `sup_${i}`,
     name: `Supplier ${String.fromCharCode(65 + i)} Wholesale`,
     type: 'Supplier',
-    balance: Math.floor(Math.random() * 300000) + 20000,
+    closingBalance: Math.floor(Math.random() * 300000) + 20000,
     phone: `81${Math.floor(Math.random() * 9000000000 + 1000000000)}`,
     email: `vendor${i}@example.com`
   }));

@@ -17,29 +17,52 @@ const SecuritySettingsPage = () => {
     const [showPass, setShowPass] = useState({ current: false, new: false, confirm: false });
     const [isSaving, setIsSaving] = useState(false);
 
-    const handleSave = () => {
-        // Since we migrated to Supabase, this logic should ideally interface with Supabase Auth.
-        // For the sake of the migration demo, we maintain the verification logic.
-        
-        if (currentPassword !== data.auth.password) {
-            addToast('Incorrect current password', 'error');
+    const handleSave = async () => {
+        if (!currentPassword) {
+            addToast('Current password is required', 'error');
             return;
         }
 
-        if (newPassword && newPassword !== confirmPassword) {
+        if (!newPassword) {
+            addToast('New password is required', 'error');
+            return;
+        }
+
+        if (newPassword.length < 6) {
+            addToast('New password must be at least 6 characters', 'error');
+            return;
+        }
+
+        if (newPassword !== confirmPassword) {
             addToast('New passwords do not match', 'error');
             return;
         }
 
         setIsSaving(true);
-        setTimeout(() => {
-            // In a real Supabase implementation, we would use supabase.auth.updateUser()
-            addToast('Credentials updated successfully', 'success');
-            setIsSaving(false);
+        try {
+            const res = await fetch('/api/auth/change-password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ currentPassword, newPassword })
+            });
+
+            const responseData = await res.json();
+
+            if (!res.ok) {
+                addToast(responseData.error || 'Failed to update password', 'error');
+                return;
+            }
+
+            addToast(responseData.message || 'Password updated successfully', 'success');
             setCurrentPassword('');
             setNewPassword('');
             setConfirmPassword('');
-        }, 800);
+        } catch (error) {
+            console.error('Password change request failed:', error);
+            addToast('Failed to connect to server', 'error');
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     const toggleShow = (key: 'current' | 'new' | 'confirm') => 

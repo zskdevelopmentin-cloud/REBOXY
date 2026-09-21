@@ -29,6 +29,32 @@ To learn more about Next.js, take a look at the following resources:
 
 You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
+## Database Production Migration Workflow
+
+REBOXY uses version-controlled Prisma migrations for production schema deployment.
+
+### Development Schema Changes
+```bash
+# Create a new versioned migration from datamodel changes
+npx prisma migrate dev --name <migration_name>
+```
+
+### Production Deployment
+```bash
+# Apply pending production migrations safely without data loss
+npx prisma migrate deploy
+# or
+npm run db:migrate:deploy
+```
+
+### Generate Prisma Client
+```bash
+npx prisma generate
+```
+
+> [!WARNING]
+> **Production Policy**: Never use `npx prisma db push` or `npx prisma db push --accept-data-loss` for production deployments. Production schema updates must be version-controlled, deterministic, and deployed using `npx prisma migrate deploy`.
+
 ## Deploy on Vercel
 
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.

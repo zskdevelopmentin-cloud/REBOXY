@@ -17,20 +17,23 @@ export default function TopReportPage() {
     const itemTotals: Record<string, { name: string, qty: number, revenue: number }> = {};
 
     sales.forEach(v => {
-      if (!customerTotals[v.partyId]) {
-        customerTotals[v.partyId] = { name: v.partyName, total: 0 };
+      const pKey = v.partyId || v.partyName || 'Cash';
+      if (!customerTotals[pKey]) {
+        customerTotals[pKey] = { name: v.partyName || 'Cash', total: 0 };
       }
-      customerTotals[v.partyId].total += v.amount;
+      customerTotals[pKey].total += v.amount;
 
-      v.items.forEach(item => {
+      (v.items || []).forEach(item => {
         const stockItem = data.stock.find(s => s.id === item.itemId);
-        const itemName = stockItem ? stockItem.name : 'Unknown Item';
+        const itemName = item.description || (stockItem ? stockItem.name : 'Item');
+        const qty = item.qty ?? item.quantity ?? 1;
+        const rev = item.total ?? item.amount ?? (qty * (item.rate || 0));
         
         if (!itemTotals[item.itemId]) {
           itemTotals[item.itemId] = { name: itemName, qty: 0, revenue: 0 };
         }
-        itemTotals[item.itemId].qty += item.qty;
-        itemTotals[item.itemId].revenue += item.total;
+        itemTotals[item.itemId].qty += qty;
+        itemTotals[item.itemId].revenue += rev;
       });
     });
 
