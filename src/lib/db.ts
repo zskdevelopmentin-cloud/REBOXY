@@ -1,6 +1,9 @@
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
-import { Pool } from 'pg';
+import { Pool, defaults } from 'pg';
+
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+defaults.ssl = { rejectUnauthorized: false };
 
 const globalForPrisma = global as unknown as { prisma: PrismaClient };
 
