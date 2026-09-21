@@ -59,26 +59,39 @@ export async function POST(req: Request) {
         // 3. Reconcile Ledgers
         if (data.ledgers && Array.isArray(data.ledgers)) {
             recordsReceived += data.ledgers.length;
+
+            const existingLedgersList = await db.ledger.findMany({
+                where: { companyId: activeCompanyId }
+            });
+
+            const ledgerByGuidMap = new Map<string, typeof existingLedgersList[0]>();
+            const ledgerByMasterIdMap = new Map<number, typeof existingLedgersList[0]>();
+            const ledgerByNameMap = new Map<string, typeof existingLedgersList[0]>();
+
+            for (const l of existingLedgersList) {
+                if (l.tallyGuid) ledgerByGuidMap.set(l.tallyGuid, l);
+                if (l.masterId) ledgerByMasterIdMap.set(l.masterId, l);
+                if (l.name) ledgerByNameMap.set(l.name.toLowerCase().trim(), l);
+            }
+
             for (const l of data.ledgers) {
                 if (!l.name) continue;
 
                 const tallyGuid = l.tallyGuid || (typeof l.tallyId === 'string' && l.tallyId.includes('-') ? l.tallyId : null);
                 const masterId = l.masterId ? parseInt(String(l.masterId), 10) : null;
                 const alterId = l.alterId ? parseInt(String(l.alterId), 10) : null;
+                const normalizedName = l.name.toLowerCase().trim();
 
                 if (alterId && alterId > maxAlterIdSeen) maxAlterIdSeen = alterId;
 
-                // Find existing ledger
+                // Find existing ledger using in-memory maps
                 let existingLedger = null;
-                if (tallyGuid) {
-                    existingLedger = await db.ledger.findFirst({
-                        where: { companyId: activeCompanyId, tallyGuid: tallyGuid }
-                    });
-                }
-                if (!existingLedger) {
-                    existingLedger = await db.ledger.findFirst({
-                        where: { companyId: activeCompanyId, name: l.name }
-                    });
+                if (tallyGuid && ledgerByGuidMap.has(tallyGuid)) {
+                    existingLedger = ledgerByGuidMap.get(tallyGuid)!;
+                } else if (masterId && ledgerByMasterIdMap.has(masterId)) {
+                    existingLedger = ledgerByMasterIdMap.get(masterId)!;
+                } else if (normalizedName && ledgerByNameMap.has(normalizedName)) {
+                    existingLedger = ledgerByNameMap.get(normalizedName)!;
                 }
 
                 if (existingLedger) {
@@ -88,7 +101,7 @@ export async function POST(req: Request) {
                         continue;
                     }
 
-                    await db.ledger.update({
+                    const updatedLedger = await db.ledger.update({
                         where: { id: existingLedger.id },
                         data: {
                             name: l.name,
@@ -100,9 +113,15 @@ export async function POST(req: Request) {
                             alterId: alterId || existingLedger.alterId
                         }
                     });
+
+                    // Update in-memory maps
+                    if (updatedLedger.tallyGuid) ledgerByGuidMap.set(updatedLedger.tallyGuid, updatedLedger);
+                    if (updatedLedger.masterId) ledgerByMasterIdMap.set(updatedLedger.masterId, updatedLedger);
+                    if (updatedLedger.name) ledgerByNameMap.set(updatedLedger.name.toLowerCase().trim(), updatedLedger);
+
                     recordsUpdated++;
                 } else {
-                    await db.ledger.create({
+                    const createdLedger = await db.ledger.create({
                         data: {
                             companyId: activeCompanyId,
                             name: l.name,
@@ -114,6 +133,12 @@ export async function POST(req: Request) {
                             alterId: alterId
                         }
                     });
+
+                    // Update in-memory maps
+                    if (createdLedger.tallyGuid) ledgerByGuidMap.set(createdLedger.tallyGuid, createdLedger);
+                    if (createdLedger.masterId) ledgerByMasterIdMap.set(createdLedger.masterId, createdLedger);
+                    if (createdLedger.name) ledgerByNameMap.set(createdLedger.name.toLowerCase().trim(), createdLedger);
+
                     recordsCreated++;
                 }
             }
@@ -122,25 +147,39 @@ export async function POST(req: Request) {
         // 4. Reconcile Inventory Items
         if (data.inventory && Array.isArray(data.inventory)) {
             recordsReceived += data.inventory.length;
+
+            const existingItemsList = await db.inventoryItem.findMany({
+                where: { companyId: activeCompanyId }
+            });
+
+            const itemByGuidMap = new Map<string, typeof existingItemsList[0]>();
+            const itemByMasterIdMap = new Map<number, typeof existingItemsList[0]>();
+            const itemByNameMap = new Map<string, typeof existingItemsList[0]>();
+
+            for (const item of existingItemsList) {
+                if (item.tallyGuid) itemByGuidMap.set(item.tallyGuid, item);
+                if (item.masterId) itemByMasterIdMap.set(item.masterId, item);
+                if (item.name) itemByNameMap.set(item.name.toLowerCase().trim(), item);
+            }
+
             for (const item of data.inventory) {
                 if (!item.name) continue;
 
                 const tallyGuid = item.tallyGuid || (typeof item.tallyId === 'string' && item.tallyId.includes('-') ? item.tallyId : null);
                 const masterId = item.masterId ? parseInt(String(item.masterId), 10) : null;
                 const alterId = item.alterId ? parseInt(String(item.alterId), 10) : null;
+                const normalizedName = item.name.toLowerCase().trim();
 
                 if (alterId && alterId > maxAlterIdSeen) maxAlterIdSeen = alterId;
 
+                // Find existing item using in-memory maps
                 let existingItem = null;
-                if (tallyGuid) {
-                    existingItem = await db.inventoryItem.findFirst({
-                        where: { companyId: activeCompanyId, tallyGuid: tallyGuid }
-                    });
-                }
-                if (!existingItem) {
-                    existingItem = await db.inventoryItem.findFirst({
-                        where: { companyId: activeCompanyId, name: item.name }
-                    });
+                if (tallyGuid && itemByGuidMap.has(tallyGuid)) {
+                    existingItem = itemByGuidMap.get(tallyGuid)!;
+                } else if (masterId && itemByMasterIdMap.has(masterId)) {
+                    existingItem = itemByMasterIdMap.get(masterId)!;
+                } else if (normalizedName && itemByNameMap.has(normalizedName)) {
+                    existingItem = itemByNameMap.get(normalizedName)!;
                 }
 
                 if (existingItem) {
@@ -149,7 +188,7 @@ export async function POST(req: Request) {
                         continue;
                     }
 
-                    await db.inventoryItem.update({
+                    const updatedItem = await db.inventoryItem.update({
                         where: { id: existingItem.id },
                         data: {
                             name: item.name,
@@ -162,9 +201,15 @@ export async function POST(req: Request) {
                             alterId: alterId || existingItem.alterId
                         }
                     });
+
+                    // Update in-memory maps
+                    if (updatedItem.tallyGuid) itemByGuidMap.set(updatedItem.tallyGuid, updatedItem);
+                    if (updatedItem.masterId) itemByMasterIdMap.set(updatedItem.masterId, updatedItem);
+                    if (updatedItem.name) itemByNameMap.set(updatedItem.name.toLowerCase().trim(), updatedItem);
+
                     recordsUpdated++;
                 } else {
-                    await db.inventoryItem.create({
+                    const createdItem = await db.inventoryItem.create({
                         data: {
                             companyId: activeCompanyId,
                             name: item.name,
@@ -177,6 +222,12 @@ export async function POST(req: Request) {
                             alterId: alterId
                         }
                     });
+
+                    // Update in-memory maps
+                    if (createdItem.tallyGuid) itemByGuidMap.set(createdItem.tallyGuid, createdItem);
+                    if (createdItem.masterId) itemByMasterIdMap.set(createdItem.masterId, createdItem);
+                    if (createdItem.name) itemByNameMap.set(createdItem.name.toLowerCase().trim(), createdItem);
+
                     recordsCreated++;
                 }
             }
