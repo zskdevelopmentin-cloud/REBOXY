@@ -5,17 +5,15 @@ import { Pool } from 'pg';
 const globalForPrisma = global as unknown as { prisma: PrismaClient };
 
 function getSanitizedDbUrl(): string {
-  let url = process.env.DATABASE_URL || "postgresql://postgres.pdznfqregaqnddynfyfx:SUPREME7510141171@aws-1-ap-south-1.pooler.supabase.com:6543/postgres?pgbouncer=true&sslmode=require";
+  let url = process.env.DATABASE_URL || "postgresql://postgres.pdznfqregaqnddynfyfx:SUPREME7510141171@aws-1-ap-south-1.pooler.supabase.com:6543/postgres?pgbouncer=true";
 
   // Ensure pooler username includes tenant project reference
   if (url.includes('pooler.supabase.com') && url.includes('://postgres:')) {
     url = url.replace('://postgres:', '://postgres.pdznfqregaqnddynfyfx:');
   }
 
-  // Ensure sslmode=require for Supabase
-  if (url.includes('supabase') && !url.includes('sslmode=')) {
-    url += (url.includes('?') ? '&' : '?') + 'sslmode=require';
-  }
+  // Strip sslmode from URL parameter so pg.Pool handles SSL via JS config { rejectUnauthorized: false }
+  url = url.replace(/([?&])sslmode=[^&]*&?/, '$1').replace(/[?&]$/, '');
 
   return url;
 }
@@ -27,7 +25,7 @@ function createPrismaClient(): PrismaClient {
     max: 10,
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 10000,
-    ssl: connectionString.includes('supabase') ? { rejectUnauthorized: false } : undefined,
+    ssl: { rejectUnauthorized: false },
   });
   const adapter = new PrismaPg(pool);
   return new PrismaClient({ adapter });
